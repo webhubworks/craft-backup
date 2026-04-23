@@ -1,0 +1,55 @@
+{
+    "name": "webhubworks/craft-backup",
+    "description": "Encrypted, compressed, off-site backups for Craft CMS (database + files) with SFTP targets and GFS retention.",
+    "type": "craft-plugin",
+    "license": "mit",
+    "authors": [
+        {
+            "name": "webhub GmbH",
+            "homepage": "https://webhub.de"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/webhubworks/craft-backup/issues?state=open",
+        "source": "https://github.com/webhubworks/craft-backup",
+        "docs": "https://github.com/webhubworks/craft-backup",
+        "rss": "https://github.com/webhubworks/craft-backup/releases.atom"
+    },
+    "require": {
+        "php": ">=8.2",
+        "craftcms/cms": "^5.0.0",
+        "league/flysystem-sftp-v3": "^3.0"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main"
+    },
+    "autoload": {
+        "psr-4": {
+            "webhubworks\\backup\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "craft-backup",
+        "name": "Craft Backup",
+        "developer": "webhub GmbH",
+        "documentationUrl": "https://github.com/webhubworks/craft-backup",
+        "class": "webhubworks\\backup\\Plugin",
+        "hasCpSettings": false
+    },
+    "scripts": {
+        "check-cs": "ecs check --ansi",
+        "fix-cs": "ecs check --ansi --fix",
+        "phpstan": "phpstan --memory-limit=1G"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2"
+        },
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        }
+    }
+}
