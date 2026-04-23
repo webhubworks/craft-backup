@@ -86,7 +86,13 @@ class BackupRunner extends Component
             FileHelper::removeDirectory($stagingDir);
         }
 
-        return $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors);
+        $result = $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors);
+
+        if (! ($flags['dry_run'] ?? false)) {
+            $this->notify($config, $result, $logger);
+        }
+
+        return $result;
     }
 
     /**
@@ -200,5 +206,56 @@ class BackupRunner extends Component
         $logger = new BackupLogger();
         $logger->runId = $runId;
         return $logger;
+    }
+
+    private function notify(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
+    {
+        $successful = $result->isSuccessful();
+        $key = $successful ? 'notify_on_success' : 'notify_on_failure';
+        $recipients = array_filter((array) ($config->logging[$key] ?? []));
+        if ($recipients === []) {
+            return;
+        }
+
+        $siteName = Craft::$app->getSystemName() ?: $config->name;
+        $status = $successful ? 'Success' : 'Failure';
+        $subject = "[Craft Backup] {$status} on {$siteName}";
+
+        $lines = [
+            $successful ? 'Backup run completed successfully.' : 'A backup run did not complete successfully.',
+            '',
+            "Site:     {$siteName}",
+            "Run ID:   {$result->runId}",
+            sprintf('Duration: %.1fs', $result->durationSeconds),
+            sprintf('Archive:  %s (%d bytes)', $result->archivePath ?? '(not produced)', $result->archiveBytes),
+            '',
+            'Targets:',
+        ];
+        foreach ($result->targetStatuses as $name => $targetStatus) {
+            $lines[] = "  - {$name}: {$targetStatus}";
+        }
+        if ($result->targetStatuses === []) {
+            $lines[] = '  (none reached)';
+        }
+        if ($result->errors !== []) {
+            $lines[] = '';
+            $lines[] = 'Errors:';
+            foreach ($result->errors as $error) {
+                $lines[] = "  - {$error}";
+            }
+        }
+
+        try {
+            Craft::$app->getMailer()
+                ->compose()
+                ->setTo($recipients)
+                ->setSubject($subject)
+                ->setTextBody(implode(PHP_EOL, $lines))
+                ->send();
+
+            $logger->info(strtolower($status) . ' notification sent', ['to' => $recipients]);
+        } catch (Throwable $e) {
+            $logger->warning('Failed to send notification', ['error' => $e->getMessage()]);
+        }
     }
 }

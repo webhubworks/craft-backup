@@ -82,7 +82,12 @@ return [
         'logging' => [
             'channel' => 'craft-backup',
             'level' => 'info',
+            // Email addresses to notify when a run fails or finishes with at least one failed target.
+            // Example: ['ops@example.com', 'devops@example.com']. Empty array disables notifications.
             'notify_on_failure' => [],
+            // Email addresses to notify when a run completes successfully.
+            // Useful for confirming scheduled backups are actually running. Empty array disables notifications.
+            'notify_on_success' => [],
         ],
     ],
 ];
