@@ -3,7 +3,11 @@
 namespace webhubworks\backup\services;
 
 use Craft;
-use Symfony\Component\Finder\Finder;
+use FilesystemIterator;
+use RecursiveCallbackFilterIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 use webhubworks\backup\models\BackupConfig;
 
 /**
@@ -12,53 +16,107 @@ use webhubworks\backup\models\BackupConfig;
 class SourceCollector
 {
     /**
-     * @return iterable<\SplFileInfo>
+     * @return iterable<SplFileInfo>
      */
     public function collect(BackupConfig $config): iterable
     {
-        $roots = array_filter(array_map(
-            fn (string $path) => Craft::getAlias($path),
-            $config->includePaths,
-        ), fn ($path) => is_string($path) && $path !== '');
+        $excludes = $this->normalizeExcludes($config->excludePaths);
 
-        if ($roots === []) {
-            return [];
-        }
-
-        $excludePatterns = array_map(
-            fn (string $path) => Craft::getAlias($path) ?: $path,
-            $config->excludePaths,
-        );
-
-        $finder = (new Finder())
-            ->files()
-            ->followLinks($config->followSymlinks)
-            ->ignoreUnreadableDirs(true);
-
-        foreach ($roots as $root) {
-            if (is_dir($root)) {
-                $finder->in($root);
-            } elseif (is_file($root)) {
-                $finder->append([new \SplFileInfo($root)]);
+        foreach ($config->includePaths as $raw) {
+            $resolved = Craft::getAlias($raw);
+            if (! is_string($resolved) || $resolved === '') {
+                continue;
             }
-        }
 
-        foreach ($excludePatterns as $pattern) {
-            if (is_string($pattern) && $pattern !== '') {
-                $finder->notPath($this->toFinderPattern($pattern));
-                $finder->notName(basename($pattern));
+            if (is_file($resolved)) {
+                if (! $this->isExcluded($resolved, $excludes)) {
+                    yield new SplFileInfo($resolved);
+                }
+                continue;
             }
-        }
 
-        return $finder;
+            if (! is_dir($resolved)) {
+                continue;
+            }
+
+            yield from $this->walk($resolved, $excludes, $config->followSymlinks);
+        }
     }
 
-    private function toFinderPattern(string $pattern): string
+    /**
+     * @param array{paths: string[], names: string[]} $excludes
+     * @return iterable<SplFileInfo>
+     */
+    private function walk(string $root, array $excludes, bool $followSymlinks): iterable
     {
-        $root = Craft::getAlias('@root');
-        if (is_string($root) && str_starts_with($pattern, $root)) {
-            return ltrim(substr($pattern, strlen($root)), '/');
+        $flags = FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_FILEINFO;
+        if ($followSymlinks) {
+            $flags |= FilesystemIterator::FOLLOW_SYMLINKS;
         }
-        return $pattern;
+
+        $directoryIterator = new RecursiveDirectoryIterator($root, $flags);
+
+        $filtered = new RecursiveCallbackFilterIterator(
+            $directoryIterator,
+            function (SplFileInfo $file) use ($excludes): bool {
+                return ! $this->isExcluded($file->getPathname(), $excludes);
+            },
+        );
+
+        $iterator = new RecursiveIteratorIterator($filtered, RecursiveIteratorIterator::LEAVES_ONLY);
+
+        foreach ($iterator as $file) {
+            if ($file instanceof SplFileInfo && $file->isFile()) {
+                yield $file;
+            }
+        }
+    }
+
+    /**
+     * @param string[] $patterns
+     * @return array{paths: string[], names: string[]}
+     */
+    private function normalizeExcludes(array $patterns): array
+    {
+        $paths = [];
+        $names = [];
+
+        foreach ($patterns as $pattern) {
+            if (! is_string($pattern) || $pattern === '') {
+                continue;
+            }
+
+            $resolved = Craft::getAlias($pattern);
+            $value = is_string($resolved) ? $resolved : $pattern;
+
+            if (str_contains($value, DIRECTORY_SEPARATOR) || str_starts_with($value, '@')) {
+                $paths[] = rtrim($value, DIRECTORY_SEPARATOR);
+            } else {
+                $names[] = $value;
+            }
+        }
+
+        return ['paths' => $paths, 'names' => $names];
+    }
+
+    /**
+     * @param array{paths: string[], names: string[]} $excludes
+     */
+    private function isExcluded(string $fullPath, array $excludes): bool
+    {
+        foreach ($excludes['paths'] as $excludedPath) {
+            if ($fullPath === $excludedPath || str_starts_with($fullPath, $excludedPath . DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+
+        $basename = basename($fullPath);
+        foreach ($excludes['names'] as $pattern) {
+            if (fnmatch($pattern, $basename)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

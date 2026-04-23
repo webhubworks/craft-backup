@@ -3,7 +3,7 @@
 /**
  * Default Craft Backup configuration.
  *
- * Copy this file to your project's config/ directory as craft-backup.php and
+ * Copy this file to your project's config/ directory as backup.php and
  * override the values you care about. The file is multi-environment aware in
  * the same way general.php is.
  */
@@ -40,7 +40,7 @@ return [
         ],
 
         'encryption' => [
-            'enabled' => true,
+            'enabled' => false,
             'cipher' => 'aes-256-cbc',
             // Base64-encoded 32-byte key. Store in a password manager and inject via env.
             'key' => null,

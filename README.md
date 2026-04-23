@@ -13,11 +13,11 @@ No control-panel UI, no licensing fees.
 
 ```
 composer require webhubworks/craft-backup
-./craft plugin/install craft-backup
+./craft plugin/install backup
 ./craft backup/publish-config
 ```
 
-`publish-config` drops a commented default file at `config/craft-backup.php`. Edit it, then generate an encryption key and put it in your `.env`:
+`publish-config` drops a commented default file at `config/backup.php`. Edit it, then generate an encryption key and put it in your `.env`:
 
 ```
 php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
@@ -32,7 +32,7 @@ Store that same key in your password manager — you need it to decrypt any back
 
 ## Configuration
 
-`config/craft-backup.php` is multi-environment aware (`'*'`, `'dev'`, `'production'` keys), just like `general.php`. See the published file for every option; the shape is:
+`config/backup.php` is multi-environment aware (`'*'`, `'dev'`, `'production'` keys), just like `general.php`. See the published file for every option; the shape is:
 
 ```php
 return [

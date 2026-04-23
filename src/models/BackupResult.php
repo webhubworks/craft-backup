@@ -34,13 +34,19 @@ final class BackupResult
             $this->targetStatuses,
         );
 
-        return sprintf(
+        $line = sprintf(
             '[%s] %.1fs  %s MB  %s',
             $this->runId,
             $this->durationSeconds,
             $sizeMb,
             implode(' ', $targets) ?: '(no targets)',
         );
+
+        if ($this->errors !== []) {
+            $line .= PHP_EOL . 'Errors:' . PHP_EOL . '  - ' . implode(PHP_EOL . '  - ', $this->errors);
+        }
+
+        return $line;
     }
 
     private function hasFailedTargets(): bool
