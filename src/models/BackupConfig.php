@@ -26,6 +26,7 @@ final class BackupConfig
         public readonly array $targets,
         public readonly array $retention,
         public readonly array $logging,
+        public readonly array $monitorBackups,
     ) {
     }
 
@@ -53,6 +54,7 @@ final class BackupConfig
             targets: (array) ($raw['targets'] ?? []),
             retention: (array) ($raw['retention'] ?? []),
             logging: (array) ($raw['logging'] ?? []),
+            monitorBackups: (array) ($raw['monitor_backups'] ?? []),
         );
 
         $config->validate();

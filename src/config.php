@@ -218,9 +218,17 @@ return [
             'notify_on_success' => [],
         ],
 
-        /**
-         * TODO: Implement
-         */
-        'monitor_backups' => []
+        'monitor_backups' => [
+            [
+                'target' => 'local',
+                'min_number_of_backups' => 1,
+                'youngest_backup_should_be_within_the_last' => '6h'
+            ],
+            // [
+            //     'target' => 'offsite',
+            //     'min_number_of_backups' => 1,
+            //     'youngest_backup_should_be_within_the_last' => '6h'
+            // ],
+        ]
     ],
 ];

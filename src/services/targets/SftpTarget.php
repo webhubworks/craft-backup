@@ -62,7 +62,7 @@ class SftpTarget implements TargetInterface
     {
         $out = [];
         foreach ($this->fs->listContents('/', false) as $item) {
-            if (! $item->isFile()) {
+            if (! $item->isFile() || ! $this->isBackupArchive(basename($item->path()))) {
                 continue;
             }
             $out[] = [
@@ -72,6 +72,16 @@ class SftpTarget implements TargetInterface
             ];
         }
         return $out;
+    }
+
+    private function isBackupArchive(string $filename): bool
+    {
+        foreach (['.zip', '.tar.gz', '.tar.gz.enc'] as $ext) {
+            if (str_ends_with($filename, $ext)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function delete(string $path): void

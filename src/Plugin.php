@@ -5,6 +5,7 @@ namespace webhubworks\backup;
 use Craft;
 use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
+use webhubworks\backup\services\BackupMonitor;
 use webhubworks\backup\services\BackupRunner;
 
 /**
@@ -12,6 +13,7 @@ use webhubworks\backup\services\BackupRunner;
  *
  * @method static Plugin getInstance()
  * @property BackupRunner $runner
+ * @property BackupMonitor $monitor
  */
 class Plugin extends BasePlugin
 {
@@ -23,6 +25,7 @@ class Plugin extends BasePlugin
 
         $this->setComponents([
             'runner' => BackupRunner::class,
+            'monitor' => BackupMonitor::class,
         ]);
 
         if (Craft::$app instanceof ConsoleApplication) {

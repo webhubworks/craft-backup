@@ -41,7 +41,7 @@ class LocalTarget implements TargetInterface
                 continue;
             }
             $path = $this->root . DIRECTORY_SEPARATOR . $name;
-            if (! is_file($path)) {
+            if (! is_file($path) || ! $this->isBackupArchive($name)) {
                 continue;
             }
             $entries[] = [
@@ -51,6 +51,16 @@ class LocalTarget implements TargetInterface
             ];
         }
         return $entries;
+    }
+
+    private function isBackupArchive(string $filename): bool
+    {
+        foreach (['.zip', '.tar.gz', '.tar.gz.enc'] as $ext) {
+            if (str_ends_with($filename, $ext)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function delete(string $path): void
