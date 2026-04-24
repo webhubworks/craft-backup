@@ -191,7 +191,13 @@ php vendor/webhubworks/craft-backup/scripts/decrypt.php archive.tar.gz.enc archi
 
 Both formats, once extracted, produce a `db-db.sql` at the root plus a `files/` tree mirroring your configured `source.include` paths (relative to `@root`). Import the SQL with your DB's native tool (`mysql < db-db.sql`, `psql -f db-db.sql`, etc.) and drop the files back into place.
 
+## Security
+See [SECURITY.md](SECURITY.md) for our security policy and instructions on how to report a vulnerability.
+
+## Credits
+- [Spatie](https://spatie.be/) for the inspiration and the Laravel version of this plugin.
+- [Marven Thieme](https://github.com/marventhieme)
 
 ## License
 
-MIT.
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
