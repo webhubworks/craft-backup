@@ -26,7 +26,7 @@ composer require webhubworks/craft-backup
 ```php
 return [
     '*' => [
-        'name' => App::env('CRAFT_BACKUP_NAME') ?: 'my-site',
+        'name' => App::env('BACKUP_NAME') ?: 'my-site',
         'source' => [
             'databases' => ['db'],
             'include' => ['@root/config', '@webroot/uploads'],
@@ -34,21 +34,21 @@ return [
         ],
         'compression' => [
             'format' => 'zip',
-            'password' => App::env('CRAFT_BACKUP_ARCHIVE_PASSWORD') ?: null,
+            'password' => App::env('BACKUP_ARCHIVE_PASSWORD') ?: null,
         ],
         'encryption' => [
-            'enabled' => filter_var(App::env('CRAFT_BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
-            'key' => App::env('CRAFT_BACKUP_ENCRYPTION_KEY') ?: null,
+            'enabled' => filter_var(App::env('BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
+            'key' => App::env('BACKUP_ENCRYPTION_KEY') ?: null,
         ],
         'throttle' => ['enabled' => false, 'bytes_per_second' => 5_000_000],
         'targets' => [
             'local' => ['driver' => 'local', 'root' => '@storage/backups'],
             'offsite' => [
                 'driver' => 'sftp',
-                'host' => App::env('CRAFT_BACKUP_SFTP_HOST'),
-                'username' => App::env('CRAFT_BACKUP_SFTP_USERNAME'),
-                'private_key' => App::env('CRAFT_BACKUP_SFTP_PRIVATE_KEY') ?: null,
-                'root' => App::env('CRAFT_BACKUP_SFTP_ROOT') ?: '/backups/my-site',
+                'host' => App::env('BACKUP_SFTP_HOST'),
+                'username' => App::env('BACKUP_SFTP_USERNAME'),
+                'private_key' => App::env('BACKUP_SFTP_PRIVATE_KEY') ?: null,
+                'root' => App::env('BACKUP_SFTP_ROOT') ?: '/backups/my-site',
             ],
         ],
         'retention' => [
@@ -62,23 +62,32 @@ return [
 ];
 ```
 
+### Targets
+
+Each entry under `targets` maps a name (freely chosen) to a driver config. Uploads run against every target; retention prunes each one independently. Use `--only-to=<name>` on `backup/run` or `backup/clean` to restrict to a single target.
+
+| Driver | Description | Required keys | Optional keys |
+|---|---|---|---|
+| `local` | Writes into a directory on the same host | `root` (path or `@alias`) | — |
+| `sftp` | Uploads via SSH to a remote server | `host`, `username`, and either `password` or `private_key` | `port` (22), `passphrase`, `root` (`/backups`), `timeout` (30) |
+
 ### Environment variables
 
 The published `config/backup.php` reads these out of `.env` via `App::env()` so secrets stay out of version control. Override any or none — unset values fall back to the defaults in the config file.
 
 | Variable | Maps to | Purpose |
 |---|---|---|
-| `CRAFT_BACKUP_NAME` | `name` | Prefix for generated archive filenames |
-| `CRAFT_BACKUP_ARCHIVE_PASSWORD` | `compression.password` | AES-256 password when `compression.format = 'zip'` |
-| `CRAFT_BACKUP_ENCRYPTION_ENABLED` | `encryption.enabled` | `true`/`false`/`1`/`0` — enables the `.tar.gz.enc` envelope |
-| `CRAFT_BACKUP_ENCRYPTION_KEY` | `encryption.key` | Base64-encoded 32 bytes, required when encryption is enabled |
-| `CRAFT_BACKUP_SFTP_HOST` | `targets.<name>.host` | SFTP hostname |
-| `CRAFT_BACKUP_SFTP_PORT` | `targets.<name>.port` | SFTP port (defaults to `22`) |
-| `CRAFT_BACKUP_SFTP_USERNAME` | `targets.<name>.username` | SFTP username |
-| `CRAFT_BACKUP_SFTP_PASSWORD` | `targets.<name>.password` | SFTP password (use this or the private key) |
-| `CRAFT_BACKUP_SFTP_PRIVATE_KEY` | `targets.<name>.private_key` | Path to the SSH private key file |
-| `CRAFT_BACKUP_SFTP_PASSPHRASE` | `targets.<name>.passphrase` | Passphrase for the private key |
-| `CRAFT_BACKUP_SFTP_ROOT` | `targets.<name>.root` | Remote directory backups are written into |
+| `BACKUP_NAME` | `name` | Prefix for generated archive filenames |
+| `BACKUP_ARCHIVE_PASSWORD` | `compression.password` | AES-256 password when `compression.format = 'zip'` |
+| `BACKUP_ENCRYPTION_ENABLED` | `encryption.enabled` | `true`/`false`/`1`/`0` — enables the `.tar.gz.enc` envelope |
+| `BACKUP_ENCRYPTION_KEY` | `encryption.key` | Base64-encoded 32 bytes, required when encryption is enabled |
+| `BACKUP_SFTP_HOST` | `targets.<name>.host` | SFTP hostname |
+| `BACKUP_SFTP_PORT` | `targets.<name>.port` | SFTP port (defaults to `22`) |
+| `BACKUP_SFTP_USERNAME` | `targets.<name>.username` | SFTP username |
+| `BACKUP_SFTP_PASSWORD` | `targets.<name>.password` | SFTP password (use this or the private key) |
+| `BACKUP_SFTP_PRIVATE_KEY` | `targets.<name>.private_key` | Path to the SSH private key file |
+| `BACKUP_SFTP_PASSPHRASE` | `targets.<name>.passphrase` | Passphrase for the private key |
+| `BACKUP_SFTP_ROOT` | `targets.<name>.root` | Remote directory backups are written into |
 
 ## Commands
 
@@ -125,7 +134,7 @@ AES-256 encryption per entry, readable by any standard zip tool. The password is
 Set a password in `.env`:
 
 ```
-CRAFT_BACKUP_ARCHIVE_PASSWORD=<choose a strong password>
+BACKUP_ARCHIVE_PASSWORD=<choose a strong password>
 ```
 
 The shipped `config/backup.php` already reads this via `App::env()`. Decrypt:
@@ -149,8 +158,8 @@ php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
 Switch formats and enable encryption in `.env`:
 
 ```
-CRAFT_BACKUP_ENCRYPTION_ENABLED=true
-CRAFT_BACKUP_ENCRYPTION_KEY=<paste base64 key here>
+BACKUP_ENCRYPTION_ENABLED=true
+BACKUP_ENCRYPTION_KEY=<paste base64 key here>
 ```
 
 Also set `compression.format` to `tar.gz` in `config/backup.php` (or leave it default once you flip the plugin default). Lose the key and the archive is unrecoverable — by design.

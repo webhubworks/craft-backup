@@ -12,26 +12,26 @@ use craft\helpers\App;
  * Several values fall back to environment variables so that secrets (keys,
  * passwords) stay out of version control:
  *
- *   CRAFT_BACKUP_NAME                — overrides 'name'
- *   CRAFT_BACKUP_ARCHIVE_PASSWORD    — overrides 'compression.password'
- *   CRAFT_BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
- *   CRAFT_BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
+ *   BACKUP_NAME                — overrides 'name'
+ *   BACKUP_ARCHIVE_PASSWORD    — overrides 'compression.password'
+ *   BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
+ *   BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
  *
  * SFTP target credentials (only used when the commented 'offsite' block is active):
  *
- *   CRAFT_BACKUP_SFTP_HOST           — SFTP hostname
- *   CRAFT_BACKUP_SFTP_PORT           — SFTP port (defaults to 22)
- *   CRAFT_BACKUP_SFTP_USERNAME       — SFTP username
- *   CRAFT_BACKUP_SFTP_PASSWORD       — SFTP password (use this or PRIVATE_KEY)
- *   CRAFT_BACKUP_SFTP_PRIVATE_KEY    — path to the private key file
- *   CRAFT_BACKUP_SFTP_PASSPHRASE     — passphrase for the private key
- *   CRAFT_BACKUP_SFTP_ROOT           — remote directory backups are written into
+ *   BACKUP_SFTP_HOST           — SFTP hostname
+ *   BACKUP_SFTP_PORT           — SFTP port (defaults to 22)
+ *   BACKUP_SFTP_USERNAME       — SFTP username
+ *   BACKUP_SFTP_PASSWORD       — SFTP password (use this or PRIVATE_KEY)
+ *   BACKUP_SFTP_PRIVATE_KEY    — path to the private key file
+ *   BACKUP_SFTP_PASSPHRASE     — passphrase for the private key
+ *   BACKUP_SFTP_ROOT           — remote directory backups are written into
  */
 
 return [
     '*' => [
         // Used as prefix for generated archive filenames.
-        'name' => App::env('CRAFT_BACKUP_NAME') ?: 'craft-backup',
+        'name' => App::env('BACKUP_NAME') ?: 'craft-backup',
 
         'source' => [
             // Craft DB connection component IDs to dump. Use ['db'] for the default connection.
@@ -87,9 +87,9 @@ return [
              * with AES-256 using this password. Store it in a password manager;
              * lose it and the archive is unrecoverable.
              *
-             * Override via CRAFT_BACKUP_ARCHIVE_PASSWORD in .env.
+             * Override via BACKUP_ARCHIVE_PASSWORD in .env.
              */
-            'password' => App::env('CRAFT_BACKUP_ARCHIVE_PASSWORD') ?: null,
+            'password' => App::env('BACKUP_ARCHIVE_PASSWORD') ?: null,
         ],
 
         /**
@@ -111,16 +111,16 @@ return [
          *
          *     php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
          *
-         * Paste the result into your .env as CRAFT_BACKUP_ENCRYPTION_KEY and
+         * Paste the result into your .env as BACKUP_ENCRYPTION_KEY and
          * reference it here via App::env(). Rotating the key only affects new
          * backups; existing archives must still be decrypted with the old key.
          */
         'encryption' => [
-            'enabled' => filter_var(App::env('CRAFT_BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
+            'enabled' => filter_var(App::env('BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
             'cipher' => 'aes-256-cbc',
             // Base64-encoded 32 random bytes. Required when 'enabled' is true.
-            // Override via CRAFT_BACKUP_ENCRYPTION_KEY in .env.
-            'key' => App::env('CRAFT_BACKUP_ENCRYPTION_KEY') ?: null,
+            // Override via BACKUP_ENCRYPTION_KEY in .env.
+            'key' => App::env('BACKUP_ENCRYPTION_KEY') ?: null,
         ],
 
         'throttle' => [
@@ -128,7 +128,19 @@ return [
             'bytes_per_second' => 5 * 1024 * 1024,
         ],
 
-        // Each target maps a name to a driver config. Uploads run against every enabled target.
+        /**
+         * Each target maps a name (freely chosen) to a driver config. Uploads
+         * run against every configured target; retention prunes each one
+         * independently. Use `--only-to=<name>` on backup/run or backup/clean
+         * to restrict to a single target.
+         *
+         * Available drivers:
+         *   'local' — writes into a directory on the same host
+         *               required: root (path or @alias)
+         *   'sftp'  — uploads via SSH to a remote server
+         *               required: host, username, and either password or private_key
+         *               optional: port (22), passphrase, root (/backups), timeout (30)
+         */
         'targets' => [
             'local' => [
                 'driver' => 'local',
@@ -136,13 +148,13 @@ return [
             ],
             // 'offsite' => [
             //     'driver' => 'sftp',
-            //     'host' => App::env('CRAFT_BACKUP_SFTP_HOST'),
-            //     'port' => (int) (App::env('CRAFT_BACKUP_SFTP_PORT') ?: 22),
-            //     'username' => App::env('CRAFT_BACKUP_SFTP_USERNAME'),
-            //     'password' => App::env('CRAFT_BACKUP_SFTP_PASSWORD') ?: null,
-            //     'private_key' => App::env('CRAFT_BACKUP_SFTP_PRIVATE_KEY') ?: null,
-            //     'passphrase' => App::env('CRAFT_BACKUP_SFTP_PASSPHRASE') ?: null,
-            //     'root' => App::env('CRAFT_BACKUP_SFTP_ROOT') ?: '/backups',
+            //     'host' => App::env('BACKUP_SFTP_HOST'),
+            //     'port' => (int) (App::env('BACKUP_SFTP_PORT') ?: 22),
+            //     'username' => App::env('BACKUP_SFTP_USERNAME'),
+            //     'password' => App::env('BACKUP_SFTP_PASSWORD') ?: null,
+            //     'private_key' => App::env('BACKUP_SFTP_PRIVATE_KEY') ?: null,
+            //     'passphrase' => App::env('BACKUP_SFTP_PASSPHRASE') ?: null,
+            //     'root' => App::env('BACKUP_SFTP_ROOT') ?: '/backups',
             //     'timeout' => 30,
             // ],
         ],

@@ -8,7 +8,7 @@
  *
  *     php decrypt.php <input.tar.gz.enc> <output.tar.gz> [base64-key]
  *
- * If you omit the key, the script reads it from the CRAFT_BACKUP_ENCRYPTION_KEY
+ * If you omit the key, the script reads it from the BACKUP_ENCRYPTION_KEY
  * env var. Extract the resulting .tar.gz with `tar -xzf`.
  */
 
@@ -46,13 +46,13 @@ if ($argc < 3) {
 
 $input = $argv[1];
 $output = $argv[2];
-$base64Key = $argv[3] ?? getenv('CRAFT_BACKUP_ENCRYPTION_KEY') ?: null;
+$base64Key = $argv[3] ?? getenv('BACKUP_ENCRYPTION_KEY') ?: null;
 
 if (! is_file($input)) {
     fail("Input file not found: {$input}");
 }
 if (! $base64Key) {
-    fail('No key provided. Pass it as the third argument or set CRAFT_BACKUP_ENCRYPTION_KEY.');
+    fail('No key provided. Pass it as the third argument or set BACKUP_ENCRYPTION_KEY.');
 }
 
 $key = base64_decode($base64Key, true);
