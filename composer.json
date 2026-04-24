@@ -1,6 +1,6 @@
 {
     "name": "webhubworks/craft-backup",
-    "description": "Encrypted, compressed, off-site backups for Craft CMS (database + files) with SFTP targets and GFS retention.",
+    "description": "Encrypted off-site backups for Craft CMS — database, files, and SFTP.",
     "type": "craft-plugin",
     "license": "mit",
     "authors": [
