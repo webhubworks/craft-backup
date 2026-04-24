@@ -3,9 +3,9 @@
 **The go-to backup package for Craft CMS**, heavily inspired by `spatie/laravel-backup`. ([Read why](#yet-another-backup-plugin-heres-why))\
 Command-line only, database and files, compressed, encrypted, shipped off-site over SFTP, and pruned by a GFS retention policy ([GFS what?](#what-is-gfs-retention-and-why-should-i-care)).
 
-If you've used `laravel-backup` on a Laravel project, you already know how this one feels — see [Compared to spatie/laravel-backup](#compared-to-spatielaravel-backup) for the side-by-side command and feature map.
+If you've used `laravel-backup` on a Laravel project, you already know how this one feels. See [Compared to spatie/laravel-backup](#compared-to-spatielaravel-backup) for the side-by-side command and feature map.
 
-No control-panel UI, no licensing fees — schedule it from cron, forget about it.
+No control-panel UI, no licensing fees. Schedule it from cron, forget about it.
 
 ## Requirements
 
@@ -38,23 +38,6 @@ craft backup/publish-config
 Review the defaults, add your targets, and you're ready to run.\
 Encryption is off by default — see [Encryption & restore](#encryption--restore) below for how to turn it on and how to recover an archive.
 
-## Commands
-
-```bash
-craft backup/run                     # DB + files → compress → encrypt → upload → cleanup
-craft backup/run --only-db           # skip file sources
-craft backup/run --only-files        # skip DB dump
-craft backup/run --only-to=offsite   # restrict to one target
-craft backup/run --disable-cleanup   # skip retention stage
-craft backup/run --dry-run           # plan only
-craft backup/list                    # list backups on each target
-craft backup/clean                   # apply retention without backing up
-craft backup/clean --only-to=offsite # retention on one target
-craft backup/clean --dry-run         # plan only, don't delete
-craft backup/publish-config          # copy default config into project
-craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
-```
-
 ### Targets
 
 Each entry under `targets` maps a name (freely chosen) to a driver config. Uploads run against every target; retention prunes each one independently. Use `--only-to=<name>` on `backup/run` or `backup/clean` to restrict to a single target.
@@ -82,7 +65,32 @@ The published `config/backup.php` reads these out of `.env` via `App::env()` so 
 | `BACKUP_SFTP_PASSPHRASE` | `targets.<name>.passphrase` | Passphrase for the private key |
 | `BACKUP_SFTP_ROOT` | `targets.<name>.root` | Remote directory backups are written into |
 
-Exit codes: `0` success, `1` partial (archive built, at least one target failed), `2` failure (no archive produced).
+## Commands
+
+```bash
+# Quickly test your configuration with:
+craft backup/run --only-db
+
+# All available commands
+craft backup/run                     # DB + files → compress → encrypt → upload → cleanup
+craft backup/run --only-db           # skip file sources
+craft backup/run --only-files        # skip DB dump
+craft backup/run --only-to=offsite   # restrict to one target
+craft backup/run --disable-cleanup   # skip retention stage
+craft backup/run --dry-run           # plan only
+craft backup/list                    # list backups on each target
+craft backup/clean                   # apply retention without backing up
+craft backup/clean --only-to=offsite # retention on one target
+craft backup/clean --dry-run         # plan only, don't delete
+craft backup/publish-config          # copy default config into project
+craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
+```
+
+## Cron
+
+```
+0 3 * * * cd /path/to/site && craft backup/run >> storage/logs/backup.log 2>&1
+```
 
 ## Yet another backup plugin? Here's why:
 
@@ -109,13 +117,34 @@ This plugin deliberately mirrors the CLI surface and config shape of [spatie/lar
 | _Coming soon_                                   | Slack & Discord notifications, Webhooks |
 | _Coming soon_                                   | Monitor the health of your backups      |
 
-## Cron
+## What is GFS retention? And why should I care?
 
-```
-0 3 * * * cd /path/to/site && craft backup/run >> storage/logs/backup.log 2>&1
-```
+**GFS** stands for **Grandfather-Father-Son**, a classic rotation scheme from the days of tape backups. The idea: you keep **lots** of very recent backups, **some** weekly ones, and **a few** monthly and yearly ones. Older backups automatically get thinner on the ground instead of piling up forever.
 
-## Archive format
+Why bother? Two very practical reasons:
+
+1. **Disk/SFTP quota.** Running a nightly backup and keeping them all means a year's worth of full-site archives sitting on your storage. GFS caps that without you having to remember to clean up.
+2. **Recovery granularity that matches how bugs are actually discovered.** You almost always need "yesterday" or "last week" — fine-grained, recent snapshots. Occasionally you need "last month" when a slow data corruption finally surfaces. Very rarely you need "a year ago" for a long-running legal/accounting question. GFS gives you all three without storing hundreds of archives.
+
+### A short example
+
+Imagine you run `craft backup/run` every night at 3 AM with the default retention policy. After two years of running, here's what's on your storage:
+
+| Age | What's kept | How many files |
+|---|---|---|
+| 0–7 days | **Every run** (safety net) | 7 |
+| 8–23 days | One per day | 16 |
+| 4–12 weeks | One per week | 8 |
+| 4–8 months | One per month | 4 |
+| 1–2 years | One per year | 2 |
+
+Total: **~37 archives**. If those were ~500 MB each, you're holding ~18 GB of backup history covering ~2.5 years. Without GFS, two years of nightly backups = 730 archives ≈ 365 GB for the same coverage — over 20x more storage.
+
+If your site rarely changes, crank `keep_yearly_for_years` up and the rest down. If it changes constantly and you want more recovery points, bump `keep_daily_for_days`. Every bucket is independent — see the comments above `retention` in the published `config/backup.php` for the full mechanics.
+
+## Advanced configuration
+
+### Archive format
 
 Pick the container via `compression.format`:
 
@@ -126,11 +155,11 @@ Pick the container via `compression.format`:
 
 `zip` is the default because it can be opened with any standard archive tool. `tar.gz` compresses better and pairs with the bundled authenticated-envelope encryption if you want integrity verification on top.
 
-## Encryption & restore
+### Encryption & restore
 
 Encryption is **off** by default — a plain `.zip` comes out of a run until you configure a password (for `zip`) or enable the custom envelope (for `tar.gz`). Two modes:
 
-### zip + password (default format)
+#### zip + password (default format)
 
 Set a password in `.env`:
 
@@ -140,7 +169,7 @@ BACKUP_ARCHIVE_PASSWORD=<choose a strong password>
 
 The shipped `config/backup.php` already reads this via `App::env()`. Decrypt:
 
-### tar.gz + encryption block
+#### tar.gz + encryption block
 
 Use this when you want **authenticated** encryption (tampering/truncation fails closed on decrypt) or better compression. The file extension becomes `.tar.gz.enc` and standard tools like `openssl enc` or `gpg` **cannot** open it — you decrypt with the bundled command or the standalone script.
 
@@ -172,11 +201,10 @@ php vendor/webhubworks/craft-backup/scripts/decrypt.php archive.tar.gz.enc archi
 
 `scripts/decrypt.php` is intentionally dependency-free — copy it onto any recovery machine alongside the archive and the base64 key.
 
-### Restoring the contents
+#### Restoring the contents
 
 Both formats, once extracted, produce a `db-db.sql` at the root plus a `files/` tree mirroring your configured `source.include` paths (relative to `@root`). Import the SQL with your DB's native tool (`mysql < db-db.sql`, `psql -f db-db.sql`, etc.) and drop the files back into place.
 
-## What is GFS retention? And why should I care?
 
 ## License
 

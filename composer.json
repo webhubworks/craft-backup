@@ -1,6 +1,6 @@
 {
     "name": "webhubworks/craft-backup",
-    "description": "Encrypted off-site backups for Craft CMS — database, files, and SFTP.",
+    "description": "A plugin to backup your Craft CMS app.",
     "type": "craft-plugin",
     "license": "mit",
     "authors": [
