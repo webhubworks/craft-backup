@@ -157,13 +157,50 @@ return [
             // ],
         ],
 
+        /**
+         * Retention policy — which existing backups to keep, which to prune.
+         * Runs after every successful upload (and on backup/clean), applied to
+         * each target independently.
+         *
+         * Implements a GFS (grandfather-father-son) strategy: backups are
+         * processed newest-first and each one falls into the first bucket below
+         * that still has room. Anything that doesn't fit any bucket is deleted.
+         *
+         *   keep_all_for_days       Unconditional safety net. EVERY backup
+         *                           taken within the last N days is kept —
+         *                           however many that is. Run backup/run four
+         *                           times a day for the last three days with
+         *                           keep_all_for_days = 3 and all 12 are kept.
+         *                           This is what makes the policy safe for
+         *                           frequent runs; the buckets below never
+         *                           deduplicate anything that's still "recent".
+         *
+         *   keep_daily_for_days     Past the safety net, keep the newest backup
+         *                           PER CALENDAR DAY for N more days. Multiple
+         *                           runs on the same day collapse to one.
+         *
+         *   keep_weekly_for_weeks   Past that, keep one per ISO week for N more
+         *                           weeks.
+         *
+         *   keep_monthly_for_months Then one per calendar month for N more
+         *                           months.
+         *
+         *   keep_yearly_for_years   Then one per calendar year for N more
+         *                           years.
+         *
+         * Defaults below give ~2.5 years of history: every run for the last
+         * week, one per day for the next ~2 weeks, one per week for the 2
+         * months after that, one per month for the following 4 months, and
+         * finally one per year for 2 years. Set any bucket to 0 to disable it.
+         *
+         * TODO: Implement delete_oldest_when_larger_than_mb
+         */
         'retention' => [
             'keep_all_for_days' => 7,
-            'keep_daily_for_days' => 30,
+            'keep_daily_for_days' => 16,
             'keep_weekly_for_weeks' => 8,
-            'keep_monthly_for_months' => 12,
-            'keep_yearly_for_years' => 3,
-            'delete_oldest_when_larger_than_mb' => null,
+            'keep_monthly_for_months' => 4,
+            'keep_yearly_for_years' => 2,
         ],
 
         'logging' => [
