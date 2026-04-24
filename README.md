@@ -7,6 +7,8 @@ If you've used `laravel-backup` on a Laravel project, you already know how this 
 
 No control-panel UI, no licensing fees. Schedule it from cron, forget about it.
 
+See the [changelog](CHANGELOG.md) for release history.
+
 ## Requirements
 
 - Craft CMS 5.0 or later
