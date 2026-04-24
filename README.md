@@ -25,10 +25,10 @@ MongoDB is **not** supported (Craft itself runs on SQL). For everything else —
 
 ```bash
 composer require webhubworks/craft-backup
-craft plugin/install backup
+php craft plugin/install backup
 
 # Copy our `src/config.php` into your project or use:
-craft backup/publish-config
+php craft backup/publish-config
 ```
 
 ## Configuration
@@ -69,27 +69,29 @@ The published `config/backup.php` reads these out of `.env` via `App::env()` so 
 
 ```bash
 # Quickly test your configuration with:
-craft backup/run --only-db
+php craft backup/run --only-db
 
 # All available commands
-craft backup/run                     # DB + files → compress → encrypt → upload → cleanup
-craft backup/run --only-db           # skip file sources
-craft backup/run --only-files        # skip DB dump
-craft backup/run --only-to=offsite   # restrict to one target
-craft backup/run --disable-cleanup   # skip retention stage
-craft backup/run --dry-run           # plan only
-craft backup/list                    # list backups on each target
-craft backup/clean                   # apply retention without backing up
-craft backup/clean --only-to=offsite # retention on one target
-craft backup/clean --dry-run         # plan only, don't delete
-craft backup/publish-config          # copy default config into project
-craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
+php craft backup/run                     # DB + files → compress → encrypt → upload → cleanup
+php craft backup/run --only-db           # skip file sources
+php craft backup/run --only-files        # skip DB dump
+php craft backup/run --only-to=offsite   # restrict to the target called "offsite" in our example config
+php craft backup/run --disable-cleanup   # skip retention stage
+php craft backup/run --dry-run           # plan only
+php craft backup/list                    # list backups on each target
+php craft backup/clean                   # apply retention without backing up
+php craft backup/clean --only-to=offsite # retention on the target called "offsite" in our example config
+php craft backup/clean --dry-run         # plan only, don't delete
+php craft backup/publish-config          # copy default config into project
+php craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
 ```
 
 ## Cron
 
+Schedule `backup/run` from your crontab. The example below runs it every night at 3 AM — use [crontab.guru](https://crontab.guru/#0_3_*_*_*) to tweak the cadence if you want a different schedule.
+
 ```
-0 3 * * * cd /path/to/site && craft backup/run >> storage/logs/backup.log 2>&1
+0 3 * * * cd /path/to/site && php craft backup/run >> storage/logs/backup.log 2>&1
 ```
 
 ## Yet another backup plugin? Here's why:
@@ -125,22 +127,6 @@ Why bother? Two very practical reasons:
 
 1. **Disk/SFTP quota.** Running a nightly backup and keeping them all means a year's worth of full-site archives sitting on your storage. GFS caps that without you having to remember to clean up.
 2. **Recovery granularity that matches how bugs are actually discovered.** You almost always need "yesterday" or "last week" — fine-grained, recent snapshots. Occasionally you need "last month" when a slow data corruption finally surfaces. Very rarely you need "a year ago" for a long-running legal/accounting question. GFS gives you all three without storing hundreds of archives.
-
-### A short example
-
-Imagine you run `craft backup/run` every night at 3 AM with the default retention policy. After two years of running, here's what's on your storage:
-
-| Age | What's kept | How many files |
-|---|---|---|
-| 0–7 days | **Every run** (safety net) | 7 |
-| 8–23 days | One per day | 16 |
-| 4–12 weeks | One per week | 8 |
-| 4–8 months | One per month | 4 |
-| 1–2 years | One per year | 2 |
-
-Total: **~37 archives**. If those were ~500 MB each, you're holding ~18 GB of backup history covering ~2.5 years. Without GFS, two years of nightly backups = 730 archives ≈ 365 GB for the same coverage — over 20x more storage.
-
-If your site rarely changes, crank `keep_yearly_for_years` up and the rest down. If it changes constantly and you want more recovery points, bump `keep_daily_for_days`. Every bucket is independent — see the comments above `retention` in the published `config/backup.php` for the full mechanics.
 
 ## Advanced configuration
 
@@ -192,7 +178,7 @@ Decrypt:
 
 ```
 # On a machine with Craft + the plugin + the key in .env:
-craft backup/decrypt my-site-2026-04-24_03-00-00-abc123.tar.gz.enc
+php craft backup/decrypt my-site-2026-04-24_03-00-00-abc123.tar.gz.enc
 tar -xzf my-site-2026-04-24_03-00-00-abc123.tar.gz
 
 # Disaster recovery on any machine with PHP (no Craft required):
