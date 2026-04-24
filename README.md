@@ -82,6 +82,7 @@ php craft backup/list                    # list backups on each target
 php craft backup/clean                   # apply retention without backing up
 php craft backup/clean --only-to=offsite # retention on the target called "offsite" in our example config
 php craft backup/clean --dry-run         # plan only, don't delete
+php craft backup/monitor                 # evaluate monitor_backups rules, print JSON, exit non-zero on failure
 php craft backup/publish-config          # copy default config into project
 php craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
 ```
@@ -93,6 +94,40 @@ Schedule `backup/run` from your crontab. The example below runs it every night a
 ```
 0 3 * * * cd /path/to/site && php craft backup/run >> storage/logs/backup.log 2>&1
 ```
+
+## Monitoring
+
+Taking a backup doesn't mean much if nobody notices when it silently stops working. `backup/monitor` evaluates the rules under `monitor_backups` in `config/backup.php` and prints a JSON report, exiting non-zero on failure so it's easy to wire into external health checks.
+
+Each rule asserts one or more conditions against a named target:
+
+```php
+'monitor_backups' => [
+    [
+        'target' => 'local',
+        'min_number_of_backups' => 1,
+        'youngest_backup_should_be_within_the_last' => '6h', // supports s/m/h/d
+    ],
+],
+```
+
+Both `min_number_of_backups` and `youngest_backup_should_be_within_the_last` are optional; omit either to skip that assertion. The `target` key is required and must match an entry under `targets`. You can repeat the same target across multiple rules if you want each assertion reported separately.
+
+Sample output on success:
+
+```json
+{"status":"ok","checks":[{"target":"local","status":"ok"}]}
+```
+
+And on failure:
+
+```json
+{"status":"failure","checks":[{"target":"local","status":"failure","reason":"Youngest backup on 'local' is 2.3d old; max allowed is 6h."}]}
+```
+
+### With Oh Dear
+
+If you already use [Oh Dear](https://ohdear.app/) for uptime monitoring, our [craft-ohdear](https://github.com/webhubworks/craft-ohdear) plugin exposes a `Check::backupHealth()` check that wraps `backup/monitor` — Oh Dear will then alert you (email, Slack, etc.) the moment a backup assertion fails, without you needing a separate cron-to-pager pipeline.
 
 ## Yet another backup plugin? Here's why:
 
@@ -116,8 +151,8 @@ This plugin deliberately mirrors the CLI surface and config shape of [spatie/lar
 | ✅                                              | Encryption support                      |
 | ✅                                              | GFS retention                           |
 | ✅                                              | Mail notifications                      |
+| ✅ (via `backup/monitor` + Oh Dear integration) | Monitor the health of your backups      |
 | _Coming soon_                                   | Slack & Discord notifications, Webhooks |
-| _Coming soon_                                   | Monitor the health of your backups      |
 
 ## What is GFS retention? And why should I care?
 
