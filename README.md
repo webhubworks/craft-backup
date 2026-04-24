@@ -7,8 +7,6 @@ If you've used `laravel-backup` on a Laravel project, you already know how this 
 
 No control-panel UI, no licensing fees. Schedule it from cron, forget about it.
 
-See the [changelog](CHANGELOG.md) for release history.
-
 ## Requirements
 
 - Craft CMS 5.0 or later
@@ -192,6 +190,9 @@ php vendor/webhubworks/craft-backup/scripts/decrypt.php archive.tar.gz.enc archi
 #### Restoring the contents
 
 Both formats, once extracted, produce a `db-db.sql` at the root plus a `files/` tree mirroring your configured `source.include` paths (relative to `@root`). Import the SQL with your DB's native tool (`mysql < db-db.sql`, `psql -f db-db.sql`, etc.) and drop the files back into place.
+
+## Changelog
+See the [changelog](CHANGELOG.md) for release history.
 
 ## Security
 See [SECURITY.md](SECURITY.md) for our security policy and instructions on how to report a vulnerability.
