@@ -217,5 +217,10 @@ return [
              */
             'notify_on_success' => [],
         ],
+
+        /**
+         * TODO: Implement
+         */
+        'monitor_backups' => []
     ],
 ];
