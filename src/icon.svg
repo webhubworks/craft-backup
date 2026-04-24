@@ -1,11 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-    <rect width="512" height="512" fill="#14213D"/>
-    <text x="256" y="256"
-          fill="#FFFFFF"
-          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-          font-size="108"
-          font-weight="700"
-          letter-spacing="-2"
-          text-anchor="middle"
-          dominant-baseline="central">backup</text>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_4111_4790)">
+<path d="M0 80C0 42.2876 0 23.4315 11.7157 11.7157C23.4315 0 42.2876 0 80 0H176C213.712 0 232.569 0 244.284 11.7157C256 23.4315 256 42.2876 256 80V176C256 213.712 256 232.569 244.284 244.284C232.569 256 213.712 256 176 256H80C42.2876 256 23.4315 256 11.7157 244.284C0 232.569 0 213.712 0 176V80Z" fill="#33404D"/>
+<path d="M66.5 128C66.5 140.164 70.1069 152.054 76.8646 162.168C83.6223 172.281 93.2273 180.164 104.465 184.819C115.703 189.473 128.068 190.691 139.998 188.318C151.928 185.945 162.886 180.088 171.487 171.487C180.088 162.886 185.945 151.928 188.318 139.998C190.691 128.068 189.473 115.703 184.819 104.465C180.164 93.2273 172.281 83.6223 162.168 76.8646C152.054 70.1069 140.164 66.5 128 66.5C110.807 66.5647 94.3046 73.2734 81.9433 85.2233L66.5 100.667" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M66.5 66.5V100.667H100.667" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M128 93.8333V128L155.333 141.667" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_4111_4790">
+<rect width="256" height="256" fill="white"/>
+</clipPath>
+</defs>
 </svg>
