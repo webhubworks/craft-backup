@@ -39,16 +39,14 @@ return [
 
             // Paths (absolute or Yii aliases) to include in the files portion.
             'include' => [
-                '@root/config',
-                '@storage/rebrand',
+                '@webroot/media',
                 '@webroot/uploads',
             ],
 
             // Paths or glob patterns to exclude (applied relative to each included root).
             'exclude' => [
-                '@storage/runtime',
-                '@storage/logs',
                 '*.DS_Store',
+                '*.tmp',
             ],
 
             'follow_symlinks' => false,
