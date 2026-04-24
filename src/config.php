@@ -1,17 +1,27 @@
 <?php
 
+use craft\helpers\App;
+
 /**
  * Default Craft Backup configuration.
  *
  * Copy this file to your project's config/ directory as backup.php and
  * override the values you care about. The file is multi-environment aware in
  * the same way general.php is.
+ *
+ * Several values fall back to environment variables so that secrets (keys,
+ * passwords) stay out of version control:
+ *
+ *   CRAFT_BACKUP_NAME                — overrides 'name'
+ *   CRAFT_BACKUP_ARCHIVE_PASSWORD    — overrides 'compression.password'
+ *   CRAFT_BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
+ *   CRAFT_BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
  */
 
 return [
     '*' => [
         // Used as prefix for generated archive filenames.
-        'name' => 'craft-backup',
+        'name' => App::env('CRAFT_BACKUP_NAME') ?: 'craft-backup',
 
         'source' => [
             // Craft DB connection component IDs to dump. Use ['db'] for the default connection.
@@ -34,16 +44,73 @@ return [
             'follow_symlinks' => false,
         ],
 
+        /**
+         * Archive container.
+         *
+         *   'tar.gz' — Smaller files, better compression, but the
+         *              output can only be encrypted via the 'encryption' block
+         *              below (producing a custom .tar.gz.enc that needs the
+         *              bundled decrypter).
+         *   'zip'    — universally readable. Set 'password' below and the
+         *              archive is AES-256 encrypted and extractable with any
+         *              zip tool (`unzip -P`, 7-Zip, macOS Archive Utility).
+         *              Incompatible with the 'encryption' block: if you want
+         *              a password-protected archive, use this and leave
+         *              encryption.enabled = false.
+         */
         'compression' => [
-            'format' => 'tar.gz',
+            'format' => 'zip',
+            /**
+             * Deflate compression level, 0–9.
+             *   0 — no compression (fastest, largest output)
+             *   1 — fastest meaningful compression
+             *   6 — balanced default; what `gzip` uses without flags
+             *   9 — maximum compression (slowest, smallest output)
+             *
+             * Higher levels save bytes but burn more CPU on the backup host —
+             * relevant when throttling isn't enough and the live site is
+             * sensitive to load during backup windows.
+             */
             'level' => 6,
+            /**
+             * Only used when format = 'zip'. If set, every entry is encrypted
+             * with AES-256 using this password. Store it in a password manager;
+             * lose it and the archive is unrecoverable.
+             *
+             * Override via CRAFT_BACKUP_ARCHIVE_PASSWORD in .env.
+             */
+            'password' => App::env('CRAFT_BACKUP_ARCHIVE_PASSWORD') ?: null,
         ],
 
+        /**
+         * Archive encryption.
+         *
+         * When enabled, the finished .tar.gz is wrapped in an authenticated
+         * envelope (AES-256-CBC + HMAC-SHA256) and written as .tar.gz.enc.
+         * Tampering or truncation fails closed on decrypt.
+         *
+         * The output is a custom format — standard tools like `openssl enc` or
+         * `gpg` CANNOT decrypt it. Use one of:
+         *   - ./craft backup/decrypt <archive.enc>       (on a Craft host)
+         *   - php vendor/webhubworks/craft-backup/scripts/decrypt.php <archive.enc> <out.tar.gz> <key>
+         *     (stand-alone, zero dependencies, for disaster recovery)
+         *
+         * Generate a key once and store it somewhere you will not lose it
+         * (password manager, sealed envelope, team vault). Without the key the
+         * archive is unrecoverable — by design.
+         *
+         *     php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
+         *
+         * Paste the result into your .env as CRAFT_BACKUP_ENCRYPTION_KEY and
+         * reference it here via App::env(). Rotating the key only affects new
+         * backups; existing archives must still be decrypted with the old key.
+         */
         'encryption' => [
-            'enabled' => false,
+            'enabled' => filter_var(App::env('CRAFT_BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
             'cipher' => 'aes-256-cbc',
-            // Base64-encoded 32-byte key. Store in a password manager and inject via env.
-            'key' => null,
+            // Base64-encoded 32 random bytes. Required when 'enabled' is true.
+            // Override via CRAFT_BACKUP_ENCRYPTION_KEY in .env.
+            'key' => App::env('CRAFT_BACKUP_ENCRYPTION_KEY') ?: null,
         ],
 
         'throttle' => [
@@ -82,11 +149,15 @@ return [
         'logging' => [
             'channel' => 'craft-backup',
             'level' => 'info',
-            // Email addresses to notify when a run fails or finishes with at least one failed target.
-            // Example: ['ops@example.com', 'devops@example.com']. Empty array disables notifications.
+            /**
+             * Email addresses to notify when a run fails or finishes with at least one failed target.
+             * Example: ['ops@example.com', 'devops@example.com']. Empty array disables notifications.
+             */
             'notify_on_failure' => [],
-            // Email addresses to notify when a run completes successfully.
-            // Useful for confirming scheduled backups are actually running. Empty array disables notifications.
+            /**
+             * Email addresses to notify when a run completes successfully.
+             * Useful for confirming scheduled backups are actually running. Empty array disables notifications.
+             */
             'notify_on_success' => [],
         ],
     ],
