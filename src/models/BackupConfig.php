@@ -17,6 +17,7 @@ final class BackupConfig
         public readonly bool $followSymlinks,
         public readonly string $compressionFormat,
         public readonly int $compressionLevel,
+        public readonly ?string $archivePassword,
         public readonly bool $encryptionEnabled,
         public readonly string $encryptionCipher,
         public readonly ?string $encryptionKey,
@@ -43,6 +44,7 @@ final class BackupConfig
             followSymlinks: (bool) ($source['follow_symlinks'] ?? false),
             compressionFormat: (string) ($compression['format'] ?? 'tar.gz'),
             compressionLevel: (int) ($compression['level'] ?? 6),
+            archivePassword: isset($compression['password']) && $compression['password'] !== '' ? (string) $compression['password'] : null,
             encryptionEnabled: (bool) ($encryption['enabled'] ?? true),
             encryptionCipher: (string) ($encryption['cipher'] ?? 'aes-256-cbc'),
             encryptionKey: $encryption['key'] ?? null,
@@ -60,6 +62,18 @@ final class BackupConfig
 
     private function validate(): void
     {
+        if (! in_array($this->compressionFormat, ['tar.gz', 'zip'], true)) {
+            throw new InvalidArgumentException("Unsupported compression.format '{$this->compressionFormat}'. Use 'tar.gz' or 'zip'.");
+        }
+
+        if ($this->compressionFormat === 'tar.gz' && $this->archivePassword !== null) {
+            throw new InvalidArgumentException("compression.password is only supported with compression.format = 'zip'.");
+        }
+
+        if ($this->compressionFormat === 'zip' && $this->encryptionEnabled) {
+            throw new InvalidArgumentException("compression.format = 'zip' uses its own password-based encryption; disable the 'encryption' block or use compression.format = 'tar.gz'.");
+        }
+
         if ($this->encryptionEnabled && empty($this->encryptionKey)) {
             throw new InvalidArgumentException('Encryption is enabled but no key was provided.');
         }

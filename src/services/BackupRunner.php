@@ -141,11 +141,14 @@ class BackupRunner extends Component
 
     private function buildArchive(BackupConfig $config, string $runId, string $stagingDir, BackupLogger $logger): string
     {
-        $filename = sprintf('%s-%s-%s.tar.gz', $config->name, date('Y-m-d_H-i-s'), $runId);
+        $extension = $config->compressionFormat === 'zip' ? 'zip' : 'tar.gz';
+        $filename = sprintf('%s-%s-%s.%s', $config->name, date('Y-m-d_H-i-s'), $runId, $extension);
         $archivePath = dirname($stagingDir) . DIRECTORY_SEPARATOR . $filename;
 
-        (new Archiver())->archive($stagingDir, $archivePath);
-        $logger->info('Archive built', ['path' => $archivePath, 'bytes' => filesize($archivePath)]);
+        (new Archiver())->archive($stagingDir, $archivePath, $config->compressionFormat, $config->archivePassword);
+
+        $note = $config->archivePassword !== null ? ' (password-protected)' : '';
+        $logger->info('Archive built' . $note, ['path' => $archivePath, 'bytes' => filesize($archivePath)]);
 
         return $archivePath;
     }

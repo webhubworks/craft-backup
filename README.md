@@ -81,6 +81,7 @@ return [
 ./craft backup/list                    # list backups on each target
 ./craft backup/clean                   # apply retention without backing up
 ./craft backup/publish-config          # copy default config into project
+./craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
 ```
 
 Exit codes: `0` success, `1` partial (archive built, at least one target failed), `2` failure (no archive produced).
@@ -93,7 +94,30 @@ Exit codes: `0` success, `1` partial (archive built, at least one target failed)
 
 ## Archive format
 
-Backups are written as `<name>-<YYYY-MM-DD_HH-MM-SS>-<runid>.tar.gz.enc` (or `.tar.gz` when encryption is disabled). The encrypted envelope uses AES-256-CBC with an HMAC-SHA256 tag over the whole file; truncation or tampering fails closed on decrypt.
+Pick the container via `compression.format`:
+
+| Format | Output filename | Encryption option | Restore |
+|---|---|---|---|
+| `tar.gz` (default) | `<name>-<ts>-<runid>.tar.gz[.enc]` | `encryption` block, AES-256-CBC + HMAC-SHA256 | `./craft backup/decrypt` or bundled `scripts/decrypt.php`, then `tar -xzf` |
+| `zip` | `<name>-<ts>-<runid>.zip` | `compression.password`, AES-256 | `unzip -P <password>`, 7-Zip, macOS Archive Utility, etc. |
+
+`tar.gz` compresses better and is the default. `zip` is useful when operators or clients need to open backups without the plugin.
+
+## Restoring a backup
+
+```
+# tar.gz.enc — on a machine that has Craft + the plugin + the key in config/.env:
+./craft backup/decrypt my-site-2026-04-24_03-00-00-abc123.tar.gz.enc
+tar -xzf my-site-2026-04-24_03-00-00-abc123.tar.gz
+
+# tar.gz.enc — disaster recovery on any machine with PHP (no Craft required):
+php vendor/webhubworks/craft-backup/scripts/decrypt.php archive.tar.gz.enc archive.tar.gz "$KEY"
+
+# zip (password-protected):
+unzip -P "$PASSWORD" my-site-2026-04-24_03-00-00-abc123.zip
+```
+
+The standalone `scripts/decrypt.php` is intentionally dependency-free — copy it onto any recovery machine alongside the archive and the base64 key.
 
 ## License
 
