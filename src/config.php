@@ -16,6 +16,16 @@ use craft\helpers\App;
  *   CRAFT_BACKUP_ARCHIVE_PASSWORD    — overrides 'compression.password'
  *   CRAFT_BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
  *   CRAFT_BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
+ *
+ * SFTP target credentials (only used when the commented 'offsite' block is active):
+ *
+ *   CRAFT_BACKUP_SFTP_HOST           — SFTP hostname
+ *   CRAFT_BACKUP_SFTP_PORT           — SFTP port (defaults to 22)
+ *   CRAFT_BACKUP_SFTP_USERNAME       — SFTP username
+ *   CRAFT_BACKUP_SFTP_PASSWORD       — SFTP password (use this or PRIVATE_KEY)
+ *   CRAFT_BACKUP_SFTP_PRIVATE_KEY    — path to the private key file
+ *   CRAFT_BACKUP_SFTP_PASSPHRASE     — passphrase for the private key
+ *   CRAFT_BACKUP_SFTP_ROOT           — remote directory backups are written into
  */
 
 return [
@@ -126,13 +136,13 @@ return [
             ],
             // 'offsite' => [
             //     'driver' => 'sftp',
-            //     'host' => null,
-            //     'port' => 22,
-            //     'username' => null,
-            //     'password' => null,
-            //     'private_key' => null,
-            //     'passphrase' => null,
-            //     'root' => '/backups',
+            //     'host' => App::env('CRAFT_BACKUP_SFTP_HOST'),
+            //     'port' => (int) (App::env('CRAFT_BACKUP_SFTP_PORT') ?: 22),
+            //     'username' => App::env('CRAFT_BACKUP_SFTP_USERNAME'),
+            //     'password' => App::env('CRAFT_BACKUP_SFTP_PASSWORD') ?: null,
+            //     'private_key' => App::env('CRAFT_BACKUP_SFTP_PRIVATE_KEY') ?: null,
+            //     'passphrase' => App::env('CRAFT_BACKUP_SFTP_PASSPHRASE') ?: null,
+            //     'root' => App::env('CRAFT_BACKUP_SFTP_ROOT') ?: '/backups',
             //     'timeout' => 30,
             // ],
         ],
