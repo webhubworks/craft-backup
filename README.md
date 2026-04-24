@@ -17,49 +17,28 @@ composer require webhubworks/craft-backup
 ./craft backup/publish-config
 ```
 
-`publish-config` drops a commented default file at `config/backup.php`. Review the defaults, add your targets, and you're ready to run. Encryption is off by default — see [Encryption & restore](#encryption--restore) below for how to turn it on and how to recover an archive.
-
 ## Configuration
 
-`config/backup.php` is multi-environment aware (`'*'`, `'dev'`, `'production'` keys), just like `general.php`. See the published file for every option; the shape is:
+`config/backup.php` is multi-environment aware (`'*'`, `'dev'`, `'production'` keys), just like `general.php`.
 
-```php
-return [
-    '*' => [
-        'name' => App::env('BACKUP_NAME') ?: 'my-site',
-        'source' => [
-            'databases' => ['db'],
-            'include' => ['@root/config', '@webroot/uploads'],
-            'exclude' => ['@storage/runtime', '*.DS_Store'],
-        ],
-        'compression' => [
-            'format' => 'zip',
-            'password' => App::env('BACKUP_ARCHIVE_PASSWORD') ?: null,
-        ],
-        'encryption' => [
-            'enabled' => filter_var(App::env('BACKUP_ENCRYPTION_ENABLED'), FILTER_VALIDATE_BOOLEAN),
-            'key' => App::env('BACKUP_ENCRYPTION_KEY') ?: null,
-        ],
-        'throttle' => ['enabled' => false, 'bytes_per_second' => 5_000_000],
-        'targets' => [
-            'local' => ['driver' => 'local', 'root' => '@storage/backups'],
-            'offsite' => [
-                'driver' => 'sftp',
-                'host' => App::env('BACKUP_SFTP_HOST'),
-                'username' => App::env('BACKUP_SFTP_USERNAME'),
-                'private_key' => App::env('BACKUP_SFTP_PRIVATE_KEY') ?: null,
-                'root' => App::env('BACKUP_SFTP_ROOT') ?: '/backups/my-site',
-            ],
-        ],
-        'retention' => [
-            'keep_all_for_days' => 7,
-            'keep_daily_for_days' => 30,
-            'keep_weekly_for_weeks' => 8,
-            'keep_monthly_for_months' => 12,
-            'keep_yearly_for_years' => 3,
-        ],
-    ],
-];
+Review the defaults, add your targets, and you're ready to run.\
+Encryption is off by default — see [Encryption & restore](#encryption--restore) below for how to turn it on and how to recover an archive.
+
+## Commands
+
+```
+./craft backup/run                     # DB + files → compress → encrypt → upload → cleanup
+./craft backup/run --only-db           # skip file sources
+./craft backup/run --only-files        # skip DB dump
+./craft backup/run --only-to=offsite   # restrict to one target
+./craft backup/run --disable-cleanup   # skip retention stage
+./craft backup/run --dry-run           # plan only
+./craft backup/list                    # list backups on each target
+./craft backup/clean                   # apply retention without backing up
+./craft backup/clean --only-to=offsite # retention on one target
+./craft backup/clean --dry-run         # plan only, don't delete
+./craft backup/publish-config          # copy default config into project
+./craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
 ```
 
 ### Targets
@@ -88,21 +67,6 @@ The published `config/backup.php` reads these out of `.env` via `App::env()` so 
 | `BACKUP_SFTP_PRIVATE_KEY` | `targets.<name>.private_key` | Path to the SSH private key file |
 | `BACKUP_SFTP_PASSPHRASE` | `targets.<name>.passphrase` | Passphrase for the private key |
 | `BACKUP_SFTP_ROOT` | `targets.<name>.root` | Remote directory backups are written into |
-
-## Commands
-
-```
-./craft backup/run                     # DB + files → compress → encrypt → upload → prune
-./craft backup/run --only-db           # skip file sources
-./craft backup/run --only-files        # skip DB dump
-./craft backup/run --only-to=offsite   # restrict to one target
-./craft backup/run --disable-cleanup   # skip retention stage
-./craft backup/run --dry-run           # plan only
-./craft backup/list                    # list backups on each target
-./craft backup/clean                   # apply retention without backing up
-./craft backup/publish-config          # copy default config into project
-./craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
-```
 
 Exit codes: `0` success, `1` partial (archive built, at least one target failed), `2` failure (no archive produced).
 
