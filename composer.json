@@ -18,7 +18,8 @@
     "require": {
         "php": ">=8.2",
         "craftcms/cms": "^5.0.0",
-        "league/flysystem-sftp-v3": "^3.0"
+        "league/flysystem-sftp-v3": "^3.0",
+        "phpseclib/phpseclib": "^3.0.51"
     },
     "require-dev": {
         "craftcms/ecs": "dev-main",
