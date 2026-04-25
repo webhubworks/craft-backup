@@ -48,7 +48,7 @@ class Archiver
             throw new BackupFailedException("Archiving failed: {$e->getMessage()}", 0, $e);
         }
 
-        if (! is_file($outputTarGz)) {
+        if (!is_file($outputTarGz)) {
             throw new BackupFailedException("Expected archive at {$outputTarGz} but it does not exist.");
         }
 
@@ -57,12 +57,12 @@ class Archiver
 
     private function archiveZip(string $stagingDir, string $outputZip, ?string $password): string
     {
-        if (! class_exists(ZipArchive::class)) {
+        if (!class_exists(ZipArchive::class)) {
             throw new BackupFailedException('ZipArchive extension is not available.');
         }
 
         $encrypted = $password !== null && $password !== '';
-        if ($encrypted && ! defined('ZipArchive::EM_AES_256')) {
+        if ($encrypted && !defined('ZipArchive::EM_AES_256')) {
             throw new BackupFailedException('This PHP/libzip build does not support AES-256 zip encryption.');
         }
 
@@ -83,25 +83,25 @@ class Archiver
         );
 
         foreach ($iterator as $file) {
-            if (! $file instanceof SplFileInfo || ! $file->isFile()) {
+            if (!$file instanceof SplFileInfo || !$file->isFile()) {
                 continue;
             }
 
             $localName = ltrim(substr($file->getPathname(), strlen($stagingDir)), DIRECTORY_SEPARATOR);
-            if (! $zip->addFile($file->getPathname(), $localName)) {
+            if (!$zip->addFile($file->getPathname(), $localName)) {
                 throw new BackupFailedException("Could not add '{$localName}' to zip.");
             }
 
-            if ($encrypted && ! $zip->setEncryptionName($localName, ZipArchive::EM_AES_256)) {
+            if ($encrypted && !$zip->setEncryptionName($localName, ZipArchive::EM_AES_256)) {
                 throw new BackupFailedException("Could not apply encryption to '{$localName}'.");
             }
         }
 
-        if (! $zip->close()) {
+        if (!$zip->close()) {
             throw new BackupFailedException('Could not finalize zip archive.');
         }
 
-        if (! is_file($outputZip)) {
+        if (!is_file($outputZip)) {
             throw new BackupFailedException("Expected archive at {$outputZip} but it does not exist.");
         }
 

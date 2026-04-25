@@ -24,18 +24,18 @@ class SourceCollector
 
         foreach ($config->includePaths as $raw) {
             $resolved = Craft::getAlias($raw);
-            if (! is_string($resolved) || $resolved === '') {
+            if (!is_string($resolved) || $resolved === '') {
                 continue;
             }
 
             if (is_file($resolved)) {
-                if (! $this->isExcluded($resolved, $excludes)) {
+                if (!$this->isExcluded($resolved, $excludes)) {
                     yield new SplFileInfo($resolved);
                 }
                 continue;
             }
 
-            if (! is_dir($resolved)) {
+            if (!is_dir($resolved)) {
                 continue;
             }
 
@@ -58,8 +58,8 @@ class SourceCollector
 
         $filtered = new RecursiveCallbackFilterIterator(
             $directoryIterator,
-            function (SplFileInfo $file) use ($excludes): bool {
-                return ! $this->isExcluded($file->getPathname(), $excludes);
+            function(SplFileInfo $file) use ($excludes): bool {
+                return !$this->isExcluded($file->getPathname(), $excludes);
             },
         );
 
@@ -82,7 +82,7 @@ class SourceCollector
         $names = [];
 
         foreach ($patterns as $pattern) {
-            if (! is_string($pattern) || $pattern === '') {
+            if (!is_string($pattern) || $pattern === '') {
                 continue;
             }
 

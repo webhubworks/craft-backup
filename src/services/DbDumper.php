@@ -31,7 +31,7 @@ class DbDumper
             $target = $stagingDir . DIRECTORY_SEPARATOR . "db-{$connectionId}.sql";
 
             $craftBackupPath = $db->backup();
-            if (! is_string($craftBackupPath) || ! is_file($craftBackupPath)) {
+            if (!is_string($craftBackupPath) || !is_file($craftBackupPath)) {
                 throw new BackupFailedException("Craft DB backup for '{$connectionId}' did not produce a file.");
             }
 

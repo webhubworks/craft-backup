@@ -14,7 +14,7 @@ class LocalTarget implements TargetInterface
     public function __construct(array $def)
     {
         $root = Craft::getAlias($def['root'] ?? '@storage/backups');
-        if (! is_string($root)) {
+        if (!is_string($root)) {
             throw new BackupFailedException("Invalid local target root: '{$def['root']}'.");
         }
         FileHelper::createDirectory($root);
@@ -24,14 +24,14 @@ class LocalTarget implements TargetInterface
     public function upload(string $localPath, string $remoteFilename, BackupConfig $config): void
     {
         $destination = $this->root . DIRECTORY_SEPARATOR . $remoteFilename;
-        if (! copy($localPath, $destination)) {
+        if (!copy($localPath, $destination)) {
             throw new BackupFailedException("Could not copy backup to {$destination}.");
         }
     }
 
     public function list(): array
     {
-        if (! is_dir($this->root)) {
+        if (!is_dir($this->root)) {
             return [];
         }
 
@@ -41,7 +41,7 @@ class LocalTarget implements TargetInterface
                 continue;
             }
             $path = $this->root . DIRECTORY_SEPARATOR . $name;
-            if (! is_file($path) || ! $this->isBackupArchive($name)) {
+            if (!is_file($path) || !$this->isBackupArchive($name)) {
                 continue;
             }
             $entries[] = [

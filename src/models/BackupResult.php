@@ -17,7 +17,7 @@ final class BackupResult
 
     public function isSuccessful(): bool
     {
-        return $this->errors === [] && ! $this->hasFailedTargets();
+        return $this->errors === [] && !$this->hasFailedTargets();
     }
 
     public function isPartial(): bool
@@ -29,7 +29,7 @@ final class BackupResult
     {
         $sizeMb = number_format($this->archiveBytes / 1024 / 1024, 2);
         $targets = array_map(
-            fn (string $name, string $status) => "{$name}={$status}",
+            fn(string $name, string $status) => "{$name}={$status}",
             array_keys($this->targetStatuses),
             $this->targetStatuses,
         );

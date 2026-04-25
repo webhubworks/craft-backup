@@ -28,13 +28,13 @@ class DecryptController extends Controller
 
     public function actionIndex(string $input, ?string $output = null): int
     {
-        if (! is_file($input)) {
+        if (!is_file($input)) {
             $this->stderr("Input file not found: {$input}\n", Console::FG_RED);
             return ExitCode::NOINPUT;
         }
 
         $base64Key = $this->key ?? $this->loadConfig()->encryptionKey;
-        if (! is_string($base64Key) || $base64Key === '') {
+        if (!is_string($base64Key) || $base64Key === '') {
             $this->stderr("No key provided. Pass --key=<base64> or set encryption.key in config/backup.php.\n", Console::FG_RED);
             return ExitCode::CONFIG;
         }

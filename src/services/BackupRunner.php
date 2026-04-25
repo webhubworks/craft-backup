@@ -34,12 +34,12 @@ class BackupRunner extends Component
         $errors = [];
 
         try {
-            if (! ($flags['only_files'] ?? false)) {
+            if (!($flags['only_files'] ?? false)) {
                 $dumps = (new DbDumper())->dump($config->databases, $stagingDir);
                 $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
             }
 
-            if (! ($flags['only_db'] ?? false)) {
+            if (!($flags['only_db'] ?? false)) {
                 $this->stageFiles($config, $stagingDir, $logger);
             }
 
@@ -68,7 +68,7 @@ class BackupRunner extends Component
                 }
             }
 
-            if (! ($flags['disable_cleanup'] ?? false)) {
+            if (!($flags['disable_cleanup'] ?? false)) {
                 $policy = new RetentionPolicy();
                 foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
                     try {
@@ -88,7 +88,8 @@ class BackupRunner extends Component
 
         $result = $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors);
 
-        if (! ($flags['dry_run'] ?? false)) {
+        if (!($flags['dry_run'] ?? false)) {
+            (new RunStateStore())->record($result);
             $this->notify($config, $result, $logger);
         }
 

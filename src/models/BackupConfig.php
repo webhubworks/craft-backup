@@ -64,7 +64,7 @@ final class BackupConfig
 
     private function validate(): void
     {
-        if (! in_array($this->compressionFormat, ['tar.gz', 'zip'], true)) {
+        if (!in_array($this->compressionFormat, ['tar.gz', 'zip'], true)) {
             throw new InvalidArgumentException("Unsupported compression.format '{$this->compressionFormat}'. Use 'tar.gz' or 'zip'.");
         }
 

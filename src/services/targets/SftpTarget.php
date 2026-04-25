@@ -62,7 +62,7 @@ class SftpTarget implements TargetInterface
     {
         $out = [];
         foreach ($this->fs->listContents('/', false) as $item) {
-            if (! $item->isFile() || ! $this->isBackupArchive(basename($item->path()))) {
+            if (!$item->isFile() || !$this->isBackupArchive(basename($item->path()))) {
                 continue;
             }
             $out[] = [

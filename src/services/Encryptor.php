@@ -44,7 +44,7 @@ class Encryptor
         hash_update($hmac, $header);
 
         try {
-            while (! feof($in)) {
+            while (!feof($in)) {
                 $chunk = fread($in, self::CHUNK_BYTES);
                 if ($chunk === '' || $chunk === false) {
                     break;
@@ -149,7 +149,7 @@ class Encryptor
             // --- authenticate ---
             $expectedTag = hash_final($hmac, true);
             $actualTag = fread($in, 32);
-            if (! hash_equals($expectedTag, $actualTag)) {
+            if (!hash_equals($expectedTag, $actualTag)) {
                 throw new BackupFailedException('Authentication failed; the file was tampered with or the key is wrong.');
             }
         } finally {

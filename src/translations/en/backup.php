@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'Backups' => 'Backups',
+    'Backup health' => 'Backup health',
+    'Healthy' => 'Healthy',
+    'Not healthy' => 'Not healthy',
+    'Last run' => 'Last run',
+    'Last successful run' => 'Last successful run',
+    'Failure reason of last run' => 'Failure reason of last run',
+    'No runs recorded yet' => 'No runs recorded yet',
+    'Never' => 'Never',
+    'Unknown' => 'Unknown',
+    'OK' => 'OK',
+    'Failed' => 'Failed',
+    'WARNING' => 'WARNING',
+    'Per-target checks' => 'Per-target checks',
+    'All checks passed.' => 'All checks passed.',
+    'File' => 'File',
+    'Size' => 'Size',
+    'Modified' => 'Modified',
+    'No backups found on this target.' => 'No backups found on this target.',
+    'No targets configured.' => 'No targets configured.',
+    'Could not load backup configuration:' => 'Could not load backup configuration:',
+    '{count, plural, =0{no backups} =1{1 backup} other{# backups}}' => '{count, plural, =0{no backups} =1{1 backup} other{# backups}}',
+];

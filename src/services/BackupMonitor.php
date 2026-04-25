@@ -52,16 +52,16 @@ class BackupMonitor extends Component
      */
     private function checkRule(BackupConfig $config, mixed $rule, int $index): array
     {
-        if (! is_array($rule)) {
+        if (!is_array($rule)) {
             return $this->failure("(rule #{$index})", "Monitor rule #{$index} must be an array.");
         }
 
         $targetName = $rule['target'] ?? null;
-        if (! is_string($targetName) || $targetName === '') {
+        if (!is_string($targetName) || $targetName === '') {
             return $this->failure("(rule #{$index})", "Monitor rule #{$index} is missing a 'target' name.");
         }
 
-        if (! array_key_exists($targetName, $config->targets)) {
+        if (!array_key_exists($targetName, $config->targets)) {
             return $this->failure($targetName, "Target '{$targetName}' is not defined in the 'targets' config.");
         }
 
@@ -74,7 +74,7 @@ class BackupMonitor extends Component
 
         if (array_key_exists('min_number_of_backups', $rule)) {
             $min = $rule['min_number_of_backups'];
-            if (! is_int($min) || $min < 0) {
+            if (!is_int($min) || $min < 0) {
                 return $this->failure($targetName, "'min_number_of_backups' must be a non-negative integer.");
             }
             if (count($files) < $min) {
@@ -121,7 +121,7 @@ class BackupMonitor extends Component
     private function parseDuration(string $input): int
     {
         $input = trim($input);
-        if (! preg_match('/^(\d+)\s*([smhd])$/i', $input, $m)) {
+        if (!preg_match('/^(\d+)\s*([smhd])$/i', $input, $m)) {
             throw new InvalidArgumentException("'{$input}' is not a valid duration (use e.g. '6h', '30m', '2d').");
         }
 

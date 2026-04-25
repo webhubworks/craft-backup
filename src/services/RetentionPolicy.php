@@ -44,22 +44,22 @@ class RetentionPolicy
             $monthKey = $date->format('Y-m');
             $yearKey = $date->format('Y');
 
-            if (count($seenDay) < $dailyLimit && ! isset($seenDay[$dayKey])) {
+            if (count($seenDay) < $dailyLimit && !isset($seenDay[$dayKey])) {
                 $seenDay[$dayKey] = true;
                 $keep[$backup['path']] = true;
                 continue;
             }
-            if (count($seenWeek) < $weeklyLimit && ! isset($seenWeek[$weekKey])) {
+            if (count($seenWeek) < $weeklyLimit && !isset($seenWeek[$weekKey])) {
                 $seenWeek[$weekKey] = true;
                 $keep[$backup['path']] = true;
                 continue;
             }
-            if (count($seenMonth) < $monthlyLimit && ! isset($seenMonth[$monthKey])) {
+            if (count($seenMonth) < $monthlyLimit && !isset($seenMonth[$monthKey])) {
                 $seenMonth[$monthKey] = true;
                 $keep[$backup['path']] = true;
                 continue;
             }
-            if (count($seenYear) < $yearlyLimit && ! isset($seenYear[$yearKey])) {
+            if (count($seenYear) < $yearlyLimit && !isset($seenYear[$yearKey])) {
                 $seenYear[$yearKey] = true;
                 $keep[$backup['path']] = true;
                 continue;
@@ -68,8 +68,8 @@ class RetentionPolicy
 
         $deleted = 0;
         foreach ($backups as $backup) {
-            if (! isset($keep[$backup['path']])) {
-                if (! $dryRun) {
+            if (!isset($keep[$backup['path']])) {
+                if (!$dryRun) {
                     $target->delete($backup['path']);
                 }
                 $deleted++;
@@ -87,7 +87,7 @@ class RetentionPolicy
             $parsed[] = ['path' => $entry['path'], 'date' => $date];
         }
 
-        usort($parsed, fn ($a, $b) => $b['date'] <=> $a['date']);
+        usort($parsed, fn($a, $b) => $b['date'] <=> $a['date']);
         return $parsed;
     }
 
