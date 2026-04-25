@@ -1,0 +1,160 @@
+{% macro relativeTime(timestamp) %}
+    {%- if timestamp -%}
+        {{ timestamp|date('D, M j, Y g:i A') }}
+    {%- else -%}
+        {{ 'Never'|t('backup') }}
+    {%- endif -%}
+{% endmacro %}
+
+{% macro formatBytes(bytes) %}
+    {%- if bytes >= 1024 * 1024 * 1024 -%}
+        {{ (bytes / 1024 / 1024 / 1024)|number_format(2) }} GB
+    {%- elseif bytes >= 1024 * 1024 -%}
+        {{ (bytes / 1024 / 1024)|number_format(2) }} MB
+    {%- elseif bytes >= 1024 -%}
+        {{ (bytes / 1024)|number_format(1) }} KB
+    {%- else -%}
+        {{ bytes }} B
+    {%- endif -%}
+{% endmacro %}
+
+{% from _self import relativeTime, formatBytes %}
+
+{% set lastRun = runState.lastRun %}
+{% set lastSuccessful = runState.lastSuccessfulRun %}
+
+{% if configError %}
+    <div class="cb-card">
+        <div class="cb-error">
+            {{ 'Could not load backup configuration:'|t('backup') }}
+            <code>{{ configError }}</code>
+        </div>
+    </div>
+{% else %}
+    {# ============================================================
+       Card 1 — Backup health
+       ============================================================ #}
+    <div class="cb-card">
+        <div class="cb-card__header">
+            <h2 class="cb-card__title">{{ 'Backup health'|t('backup') }}</h2>
+
+            {% if monitorEnabled %}
+                {% if monitor.status == 'ok' %}
+                    <span class="cb-badge cb-badge--ok">{{ 'Healthy'|t('backup') }}</span>
+                {% else %}
+                    <span class="cb-badge cb-badge--warning">{{ 'Not healthy'|t('backup') }}</span>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <dl class="cb-rows">
+            <dt>{{ 'Last run'|t('backup') }}</dt>
+            <dd>
+                {% if lastRun %}
+                    {{ relativeTime(lastRun.at) }}
+                    {% if lastRun.status == 'ok' %}
+                        <span class="cb-badge cb-badge--ok" style="margin-left:8px;">{{ 'OK'|t('backup') }}</span>
+                    {% else %}
+                        <span class="cb-badge cb-badge--failed" style="margin-left:8px;">{{ 'Failed'|t('backup') }}</span>
+                    {% endif %}
+                {% else %}
+                    {{ 'No runs recorded yet'|t('backup') }}
+                {% endif %}
+            </dd>
+
+            <dt>{{ 'Last successful run'|t('backup') }}</dt>
+            <dd>
+                {% if lastSuccessful %}
+                    {{ relativeTime(lastSuccessful.at) }}
+                {% else %}
+                    {{ 'Never'|t('backup') }}
+                {% endif %}
+            </dd>
+
+            {% if lastRun and lastRun.status != 'ok' %}
+                <dt>{{ 'Failure reason of last run'|t('backup') }}</dt>
+                <dd>
+                    {% if lastRun.errors|length %}
+                        {% for error in lastRun.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    {% else %}
+                        {{ 'Unknown'|t('backup') }}
+                    {% endif %}
+                </dd>
+            {% endif %}
+        </dl>
+
+        {% if monitorEnabled %}
+            <h3 class="cb-section-title">{{ 'Per-target checks'|t('backup') }}</h3>
+            <div class="cb-checks">
+                {% if monitor.checks is defined %}
+                    {% for check in monitor.checks %}
+                        <div class="cb-checks__row">
+                            {% if check.status == 'ok' %}
+                                <span class="cb-badge cb-badge--ok">{{ 'OK'|t('backup') }}</span>
+                            {% else %}
+                                <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                            {% endif %}
+
+                            <div class="cb-checks__detail">
+                                <strong>{{ check.target }}</strong>
+                                {% if check.reason is defined %}{{ check.reason }}{% else %}{{ 'All checks passed.'|t('backup') }}{% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-checks__row">
+                        <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                        <div class="cb-checks__detail">{{ monitor.reason ?? '' }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {# ============================================================
+       One card per target — each lists that target's backups
+       ============================================================ #}
+    {% if backupsByTarget is empty %}
+        <div class="cb-card">
+            <div class="cb-list__empty">{{ 'No targets configured.'|t('backup') }}</div>
+        </div>
+    {% else %}
+        {% for targetName, backups in backupsByTarget %}
+            <div class="cb-card">
+                <div class="cb-card__header">
+                    <h2 class="cb-card__title">{{ targetName }}</h2>
+                    <span class="cb-badge cb-badge--neutral">
+                        {{ '{count, plural, =0{no backups} =1{1 backup} other{# backups}}'|t('backup', { count: backups|length }) }}
+                    </span>
+                </div>
+
+                <div class="cb-list">
+                    {% if backups|length %}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>{{ 'File'|t('backup') }}</th>
+                                    <th>{{ 'Size'|t('backup') }}</th>
+                                    <th>{{ 'Modified'|t('backup') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in backups %}
+                                    <tr>
+                                        <td class="cb-mono">{{ backup.name }}</td>
+                                        <td>{{ formatBytes(backup.size) }}</td>
+                                        <td>{{ backup.modified|date('D, M j, Y g:i A') }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="cb-list__empty">{{ 'No backups found on this target.'|t('backup') }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endif %}

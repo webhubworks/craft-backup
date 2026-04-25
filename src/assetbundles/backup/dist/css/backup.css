@@ -1,5 +1,9 @@
 /* craft-backup CP page — mirrors the visual language of craft-ohdear */
 
+.cb-utility-extension {
+    margin-top: 24px;
+}
+
 .cb-card {
     background: #fff;
     border-radius: 5px;

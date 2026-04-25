@@ -6,8 +6,12 @@ use Craft;
 use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
 use craft\events\RegisterUrlRulesEvent;
+use craft\events\TemplateEvent;
 use craft\i18n\PhpMessageSource;
 use craft\web\UrlManager;
+use craft\web\View;
+use webhubworks\backup\assetbundles\backup\BackupAsset;
+use webhubworks\backup\controllers\BackupController;
 use webhubworks\backup\services\BackupMonitor;
 use webhubworks\backup\services\BackupRunner;
 use webhubworks\backup\services\RunStateStore;
@@ -25,8 +29,6 @@ class Plugin extends BasePlugin
 {
     public string $schemaVersion = '1.0.0';
 
-    public bool $hasCpSection = true;
-
     public function init(): void
     {
         parent::init();
@@ -43,6 +45,7 @@ class Plugin extends BasePlugin
             $this->controllerNamespace = 'webhubworks\\backup\\controllers';
             $this->registerCpRoutes();
             $this->registerTranslations();
+            $this->extendDbBackupUtility();
         }
     }
 
@@ -70,5 +73,36 @@ class Plugin extends BasePlugin
             'basePath' => __DIR__ . '/translations',
             'allowOverrides' => true,
         ];
+    }
+
+    private function extendDbBackupUtility(): void
+    {
+        Event::on(
+            View::class,
+            View::EVENT_AFTER_RENDER_TEMPLATE,
+            function(TemplateEvent $event) {
+                if ($event->templateMode !== View::TEMPLATE_MODE_CP) {
+                    return;
+                }
+
+                if (!in_array($event->template, [
+                    '_components/utilities/DbBackup',
+                    '_components/utilities/DbBackup.twig',
+                ], true)) {
+                    return;
+                }
+
+                $view = Craft::$app->getView();
+                $view->registerAssetBundle(BackupAsset::class);
+
+                $statusHtml = $view->renderTemplate(
+                    'backup/_status',
+                    BackupController::collectStatusData(),
+                    View::TEMPLATE_MODE_CP,
+                );
+
+                $event->output .= '<div class="cb-utility-extension">' . $statusHtml . '</div>';
+            }
+        );
     }
 }
