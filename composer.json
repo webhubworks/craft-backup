@@ -32,7 +32,7 @@
     },
     "extra": {
         "handle": "backup",
-        "name": "Craft Backup",
+        "name": "Backup",
         "developer": "webhub GmbH",
         "documentationUrl": "https://github.com/webhubworks/craft-backup",
         "class": "webhubworks\\backup\\Plugin",
