@@ -5,7 +5,7 @@ Command-line only, database and files, compressed, encrypted, shipped off-site o
 
 If you've used `laravel-backup` on a Laravel project, you already know how this one feels. See [Compared to spatie/laravel-backup](#compared-to-spatielaravel-backup) for the side-by-side command and feature map.
 
-No control-panel UI, no licensing fees. Schedule it from cron, forget about it.
+No control-panel UI, no licensing fees. Schedule it from cron, forget about it. (Well, you might want to use the [monitoring feature](https://github.com/webhubworks/craft-backup/blob/main/README.md#monitoring) anyway.)
 
 ## Requirements
 
