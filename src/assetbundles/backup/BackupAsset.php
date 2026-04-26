@@ -19,6 +19,10 @@ class BackupAsset extends AssetBundle
             'css/backup.css',
         ];
 
+        $this->js = [
+            'js/backup.js',
+        ];
+
         parent::init();
     }
 }

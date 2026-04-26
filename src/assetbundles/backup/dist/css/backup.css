@@ -1,35 +1,21 @@
-/* craft-backup CP page — mirrors the visual language of craft-ohdear */
+/* craft-backup utility extension — mirrors Craft's "Caches" utility layout */
 
 .cb-utility-extension {
     margin-top: 24px;
 }
 
-.cb-card {
-    background: #fff;
-    border-radius: 5px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 0 0 1px rgba(205, 216, 228, 0.25), 0 2px 12px rgba(205, 216, 228, 0.4);
+.cb-utility-extension hr {
+    margin: 24px 0;
 }
 
-.cb-card__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 18px;
-}
-
-.cb-card__title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1f2933;
-    margin: 0;
+.cb-utility-extension h2 {
+    margin: 0 0 18px;
 }
 
 .cb-section-title {
     font-weight: 700;
     color: #1f2933;
-    margin: 0 0 12px;
+    margin: 24px 0 12px;
     font-size: 13px;
 }
 
@@ -41,7 +27,7 @@
     align-items: start;
     font-size: 13px;
     color: #1f2933;
-    margin-bottom: 18px;
+    margin: 0 0 18px;
 }
 
 .cb-rows dt {
@@ -103,10 +89,6 @@
     display: none;
 }
 
-.cb-checks {
-    border-top: 1px dashed #d8e0e9;
-}
-
 .cb-checks__row {
     display: grid;
     grid-template-columns: 90px 1fr;
@@ -117,9 +99,8 @@
     font-size: 13px;
 }
 
-.cb-checks__label {
-    font-weight: 700;
-    color: #1f2933;
+.cb-checks__row:last-child {
+    border-bottom: none;
 }
 
 .cb-checks__detail {
@@ -129,6 +110,20 @@
 .cb-checks__detail strong {
     color: #1f2933;
     margin-right: 8px;
+}
+
+.cb-tabs-header {
+    margin-block: 12px 0;
+    margin-inline: 0;
+    border-radius: 0;
+}
+
+.cb-tab-panes {
+    margin-top: 18px;
+}
+
+.cb-tab-pane.hidden {
+    display: none;
 }
 
 .cb-list {

@@ -5,9 +5,12 @@ namespace webhubworks\backup;
 use Craft;
 use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
+use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\TemplateEvent;
 use craft\i18n\PhpMessageSource;
+use craft\services\Utilities;
+use craft\utilities\DbBackup;
 use craft\web\UrlManager;
 use craft\web\View;
 use webhubworks\backup\assetbundles\backup\BackupAsset;
@@ -15,6 +18,7 @@ use webhubworks\backup\controllers\BackupController;
 use webhubworks\backup\services\BackupMonitor;
 use webhubworks\backup\services\BackupRunner;
 use webhubworks\backup\services\RunStateStore;
+use webhubworks\backup\utilities\BackupUtility;
 use yii\base\Event;
 
 /**
@@ -45,6 +49,7 @@ class Plugin extends BasePlugin
             $this->controllerNamespace = 'webhubworks\\backup\\controllers';
             $this->registerCpRoutes();
             $this->registerTranslations();
+            $this->renameDbBackupUtility();
             $this->extendDbBackupUtility();
         }
     }
@@ -75,6 +80,20 @@ class Plugin extends BasePlugin
         ];
     }
 
+    private function renameDbBackupUtility(): void
+    {
+        Event::on(
+            Utilities::class,
+            Utilities::EVENT_REGISTER_UTILITIES,
+            function(RegisterComponentTypesEvent $event) {
+                $index = array_search(DbBackup::class, $event->types, true);
+                if ($index !== false) {
+                    $event->types[$index] = BackupUtility::class;
+                }
+            }
+        );
+    }
+
     private function extendDbBackupUtility(): void
     {
         Event::on(
@@ -97,7 +116,7 @@ class Plugin extends BasePlugin
 
                 $statusHtml = $view->renderTemplate(
                     'backup/_status',
-                    BackupController::collectStatusData(),
+                    BackupController::collectStatusData() + ['utilityContext' => true],
                     View::TEMPLATE_MODE_CP,
                 );
 
