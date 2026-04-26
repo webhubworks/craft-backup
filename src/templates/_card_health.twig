@@ -1,0 +1,57 @@
+{% from 'backup/_macros' import relativeTime %}
+
+{% set lastRun = runState.lastRun %}
+{% set lastSuccessful = runState.lastSuccessfulRun %}
+
+<div class="cb-card">
+    <h2>{{ 'Backup health'|t('backup') }}</h2>
+
+    <dl class="cb-rows">
+        {% if monitorEnabled %}
+            <dt>{{ 'Status'|t('backup') }}</dt>
+            <dd>
+                {% if monitor.status == 'ok' %}
+                    <span class="cb-badge cb-badge--ok">{{ 'Healthy'|t('backup') }}</span>
+                {% else %}
+                    <span class="cb-badge cb-badge--warning">{{ 'Not healthy'|t('backup') }}</span>
+                {% endif %}
+            </dd>
+        {% endif %}
+
+        <dt>{{ 'Last run'|t('backup') }}</dt>
+        <dd>
+            {% if lastRun %}
+                {{ relativeTime(lastRun.at) }}
+                {% if lastRun.status == 'ok' %}
+                    <span class="cb-badge cb-badge--ok" style="margin-left:8px;">{{ 'OK'|t('backup') }}</span>
+                {% else %}
+                    <span class="cb-badge cb-badge--failed" style="margin-left:8px;">{{ 'Failed'|t('backup') }}</span>
+                {% endif %}
+            {% else %}
+                {{ 'No runs recorded yet'|t('backup') }}
+            {% endif %}
+        </dd>
+
+        <dt>{{ 'Last successful run'|t('backup') }}</dt>
+        <dd>
+            {% if lastSuccessful %}
+                {{ relativeTime(lastSuccessful.at) }}
+            {% else %}
+                {{ 'Never'|t('backup') }}
+            {% endif %}
+        </dd>
+
+        {% if lastRun and lastRun.status != 'ok' %}
+            <dt>{{ 'Failure reason of last run'|t('backup') }}</dt>
+            <dd>
+                {% if lastRun.errors|length %}
+                    {% for error in lastRun.errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                {% else %}
+                    {{ 'Unknown'|t('backup') }}
+                {% endif %}
+            </dd>
+        {% endif %}
+    </dl>
+</div>

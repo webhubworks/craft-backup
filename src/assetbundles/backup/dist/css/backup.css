@@ -2,6 +2,9 @@
 
 .cb-utility-extension {
     margin-top: 24px;
+}
+
+.cb-cards {
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -179,4 +182,35 @@
     padding: 14px 16px;
     border-radius: 4px;
     font-size: 13px;
+}
+
+.cb-skeleton {
+    background: linear-gradient(90deg, #eef1f5 0%, #f6f8fb 50%, #eef1f5 100%);
+    background-size: 200% 100%;
+    border-radius: 4px;
+    animation: cb-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.cb-skeleton--row {
+    height: 14px;
+    margin-bottom: 12px;
+}
+
+.cb-skeleton--row:last-child {
+    margin-bottom: 0;
+}
+
+.cb-skeleton--short {
+    width: 40%;
+}
+
+@keyframes cb-skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cb-skeleton {
+        animation: none;
+    }
 }

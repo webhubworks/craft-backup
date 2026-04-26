@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.3 - 2026-04-26
+
+### Changed
+- Deferred per-card data loading on the status page so it now renders immediately with skeleton placeholders and isolates failures to individual cards.
+
 ## 1.2.2 - 2026-04-26
 
 ### Changed

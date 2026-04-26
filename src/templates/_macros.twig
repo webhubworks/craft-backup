@@ -1,0 +1,19 @@
+{% macro relativeTime(timestamp) %}
+    {%- if timestamp -%}
+        {{ timestamp|date('D, M j, Y g:i A') }}
+    {%- else -%}
+        {{ 'Never'|t('backup') }}
+    {%- endif -%}
+{% endmacro %}
+
+{% macro formatBytes(bytes) %}
+    {%- if bytes >= 1024 * 1024 * 1024 -%}
+        {{ (bytes / 1024 / 1024 / 1024)|number_format(2) }} GB
+    {%- elseif bytes >= 1024 * 1024 -%}
+        {{ (bytes / 1024 / 1024)|number_format(2) }} MB
+    {%- elseif bytes >= 1024 -%}
+        {{ (bytes / 1024)|number_format(1) }} KB
+    {%- else -%}
+        {{ bytes }} B
+    {%- endif -%}
+{% endmacro %}

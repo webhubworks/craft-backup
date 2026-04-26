@@ -116,7 +116,7 @@ class Plugin extends BasePlugin
 
                 $statusHtml = $view->renderTemplate(
                     'backup/_status',
-                    BackupController::collectStatusData(),
+                    BackupController::collectShellData(),
                     View::TEMPLATE_MODE_CP,
                 );
 

@@ -1,0 +1,31 @@
+{% if not monitorEnabled %}
+    {# Monitor disabled — render nothing; the placeholder will be removed. #}
+{% else %}
+    <div class="cb-card">
+        <h2>{{ 'Per-target checks'|t('backup') }}</h2>
+
+        <div class="cb-checks">
+            {% if monitor.checks is defined %}
+                {% for check in monitor.checks %}
+                    <div class="cb-checks__row">
+                        {% if check.status == 'ok' %}
+                            <span class="cb-badge cb-badge--ok">{{ 'OK'|t('backup') }}</span>
+                        {% else %}
+                            <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                        {% endif %}
+
+                        <div class="cb-checks__detail">
+                            <strong>{{ check.target }}</strong>
+                            {% if check.reason is defined %}{{ check.reason }}{% else %}{{ 'All checks passed.'|t('backup') }}{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="cb-checks__row">
+                    <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                    <div class="cb-checks__detail">{{ monitor.reason ?? '' }}</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}

@@ -1,0 +1,61 @@
+{% from 'backup/_macros' import formatBytes %}
+
+<div class="cb-card">
+    <h2>{{ 'Backups by target'|t('backup') }}</h2>
+
+    {% if backupsByTarget is empty %}
+        <div class="cb-list__empty">{{ 'No targets configured.'|t('backup') }}</div>
+    {% else %}
+        {% set targetTabs = {} %}
+        {% for targetName in backupsByTarget|keys %}
+            {% set paneId = 'cb-target-' ~ loop.index %}
+            {% set targetTabs = targetTabs|merge({
+                (paneId): {
+                    label: targetName,
+                    url: '#' ~ paneId,
+                },
+            }) %}
+        {% endfor %}
+
+        <header class="pane-header cb-tabs-header">
+            {% include '_includes/tabs.twig' with {
+                tabs: targetTabs,
+                containerAttributes: {
+                    id: 'cb-target-tabs',
+                },
+            } only %}
+        </header>
+
+        <div class="cb-tab-panes">
+            {% for targetName, backups in backupsByTarget %}
+                {% set paneId = 'cb-target-' ~ loop.index %}
+                <div id="{{ paneId }}" class="cb-tab-pane{% if not loop.first %} hidden{% endif %}">
+                    <div class="cb-list">
+                        {% if backups|length %}
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'File'|t('backup') }}</th>
+                                        <th>{{ 'Size'|t('backup') }}</th>
+                                        <th>{{ 'Modified'|t('backup') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for backup in backups %}
+                                        <tr>
+                                            <td class="cb-mono">{{ backup.name }}</td>
+                                            <td>{{ formatBytes(backup.size) }}</td>
+                                            <td>{{ backup.modified|date('D, M j, Y g:i A') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="cb-list__empty">{{ 'No backups found on this target.'|t('backup') }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
