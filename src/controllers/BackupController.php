@@ -17,6 +17,14 @@ class BackupController extends Controller
     {
         $this->requirePermission('accessCp');
 
+        return $this->renderTemplate('backup/index', self::collectStatusData());
+    }
+
+    /**
+     * @return array{configError: ?string, monitor: mixed, monitorEnabled: bool, runState: array, backupsByTarget: array<string, array<int, array{name:string, size:int, modified:int}>>}
+     */
+    public static function collectStatusData(): array
+    {
         $configError = null;
         $config = null;
         try {
@@ -35,22 +43,22 @@ class BackupController extends Controller
                 $monitor = ['status' => 'failure', 'reason' => $e->getMessage()];
             }
 
-            $backupsByTarget = $this->collectBackups($config);
+            $backupsByTarget = self::collectBackups($config);
         }
 
-        return $this->renderTemplate('backup/index', [
+        return [
             'configError' => $configError,
             'monitor' => $monitor,
             'monitorEnabled' => $config !== null && $config->monitorBackups !== [],
             'runState' => Plugin::getInstance()->runState->read(),
             'backupsByTarget' => $backupsByTarget,
-        ]);
+        ];
     }
 
     /**
      * @return array<string, array<int, array{name:string, size:int, modified:int}>>
      */
-    private function collectBackups(BackupConfig $config): array
+    private static function collectBackups(BackupConfig $config): array
     {
         try {
             $listings = Plugin::getInstance()->runner->list($config);
