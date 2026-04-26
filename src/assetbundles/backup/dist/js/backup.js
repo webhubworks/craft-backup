@@ -3,6 +3,14 @@
         return;
     }
 
+    function moveExtensionOutsideContent() {
+        var $extension = $('.cb-utility-extension');
+        var $content = $('#content');
+        if ($extension.length && $content.length && $.contains($content[0], $extension[0])) {
+            $extension.insertAfter($content);
+        }
+    }
+
     function initTabs() {
         var $container = $('#cb-target-tabs');
         if (!$container.length || $container.data('tabs')) {
@@ -26,9 +34,14 @@
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTabs);
-    } else {
+    function boot() {
+        moveExtensionOutsideContent();
         initTabs();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
     }
 })(window.jQuery);

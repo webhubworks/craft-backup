@@ -1,22 +1,21 @@
-/* craft-backup utility extension — mirrors Craft's "Caches" utility layout */
+/* craft-backup utility extension — sibling cards mirroring Craft's content-pane look */
 
 .cb-utility-extension {
     margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
-.cb-utility-extension hr {
-    margin: 24px 0;
+.cb-card {
+    background: #fff;
+    border-radius: var(--large-border-radius, 5px);
+    box-shadow: 0 0 0 1px #cdd8e4, 0 2px 12px rgba(205, 216, 228, .5);
+    padding: 24px;
 }
 
-.cb-utility-extension h2 {
+.cb-card > h2 {
     margin: 0 0 18px;
-}
-
-.cb-section-title {
-    font-weight: 700;
-    color: #1f2933;
-    margin: 24px 0 12px;
-    font-size: 13px;
 }
 
 .cb-rows {
@@ -27,7 +26,7 @@
     align-items: start;
     font-size: 13px;
     color: #1f2933;
-    margin: 0 0 18px;
+    margin: 0;
 }
 
 .cb-rows dt {
@@ -113,13 +112,13 @@
 }
 
 .cb-tabs-header {
-    margin-block: 12px 0;
-    margin-inline: 0;
+    margin-block: 0;
+    margin-inline: -24px;
     border-radius: 0;
 }
 
 .cb-tab-panes {
-    margin-top: 18px;
+    margin-top: 24px;
 }
 
 .cb-tab-pane.hidden {
