@@ -1,5 +1,35 @@
 # Release Notes for Craft Backup
 
+## 1.2.2 - 2026-04-26
+
+### Changed
+- Renamed plugin to "Backup".
+- Updated plugin icon.
+- Moved backup health overview from a dedicated control panel section into a utility under Utilities.
+- Reworked the status page layout into single cards and adjusted styling.
+
+## 1.2.1 - 2026-04-25
+
+### Security
+- Pinned `phpseclib/phpseclib` to `^3.0.51` to pick up upstream security fixes.
+
+## 1.2.0 - 2026-04-25
+
+### Added
+- Control panel status page showing last/next run, recent results, and per-target health.
+- `BackupMonitor` health checks surfaced in the UI (translations, templates, asset bundle).
+- `RunStateStore` to persist run state for the status page.
+
+## 1.1.1 - 2026-04-24
+
+### Added
+- Health check documentation in the README.
+
+## 1.1.0 - 2026-04-24
+
+### Added
+- `backup/monitor` console command for verifying that recent backups exist and meet freshness/size thresholds, including notifications on failure.
+
 ## 1.0.0 - 2026-04-24
 
 Initial release.
