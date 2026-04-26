@@ -5,9 +5,27 @@
 }
 
 .cb-cards {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 24px;
+}
+
+.cb-cards > [data-cb-card] {
+    display: flex;
+}
+
+.cb-cards > [data-cb-card] > .cb-card {
+    flex: 1;
+}
+
+@media (min-width: 768px) {
+    .cb-cards:has([data-cb-card="checks"]) {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cb-cards:has([data-cb-card="checks"]) > [data-cb-card="backups"] {
+        grid-column: 1 / -1;
+    }
 }
 
 .cb-card {
