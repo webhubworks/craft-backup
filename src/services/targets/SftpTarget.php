@@ -69,6 +69,7 @@ class SftpTarget implements TargetInterface
                 'path' => $item->path(),
                 'size' => (int) ($item->fileSize() ?? 0),
                 'modified' => (int) ($item->lastModified() ?? 0),
+                'encrypted' => null,
             ];
         }
         return $out;

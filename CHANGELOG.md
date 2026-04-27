@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.5 - 2026-04-27
+
+### Added
+- Green lock icon next to password-protected `.zip` files in the "Backups by target" card, with a legend explaining that detection is available for local targets only.
+
 ## 1.2.4 - 2026-04-27
 
 ### Added

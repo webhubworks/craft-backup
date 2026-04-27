@@ -211,6 +211,22 @@
     font-size: 12px;
 }
 
+.cb-lock {
+    display: inline-flex;
+    align-items: center;
+    color: #1f7a4d;
+    vertical-align: middle;
+}
+
+.cb-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
 .cb-error {
     background: #fde2e2;
     color: #9b1c1c;

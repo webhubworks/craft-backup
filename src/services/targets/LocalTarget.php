@@ -6,6 +6,7 @@ use Craft;
 use craft\helpers\FileHelper;
 use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
+use ZipArchive;
 
 class LocalTarget implements TargetInterface
 {
@@ -48,6 +49,7 @@ class LocalTarget implements TargetInterface
                 'path' => $path,
                 'size' => (int) filesize($path),
                 'modified' => (int) filemtime($path),
+                'encrypted' => $this->isZipPasswordProtected($path),
             ];
         }
         return $entries;
@@ -61,6 +63,30 @@ class LocalTarget implements TargetInterface
             }
         }
         return false;
+    }
+
+    private function isZipPasswordProtected(string $path): ?bool
+    {
+        if (!str_ends_with($path, '.zip') || !class_exists(ZipArchive::class)) {
+            return null;
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) {
+            return null;
+        }
+
+        try {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                if (is_array($stat) && !empty($stat['encryption_method'])) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            $zip->close();
+        }
     }
 
     public function delete(string $path): void

@@ -9,7 +9,7 @@ interface TargetInterface
     public function upload(string $localPath, string $remoteFilename, BackupConfig $config): void;
 
     /**
-     * @return array<int, array{path: string, size: int, modified: int}>
+     * @return array<int, array{path: string, size: int, modified: int, encrypted: ?bool}>
      */
     public function list(): array;
 

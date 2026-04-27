@@ -43,7 +43,16 @@
                                 <tbody>
                                     {% for backup in backups %}
                                         <tr>
-                                            <td class="cb-mono">{{ backup.name }}</td>
+                                            <td class="cb-mono">
+                                                {{ backup.name }}
+                                                {% if backup.encrypted %}
+                                                    <span class="cb-lock" title="{{ 'Password protected'|t('backup') }}" aria-label="{{ 'Password protected'|t('backup') }}">
+                                                        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                                                            <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm-2 6V4.5a2 2 0 1 1 4 0V7H6Z"/>
+                                                        </svg>
+                                                    </span>
+                                                {% endif %}
+                                            </td>
                                             <td>{{ formatBytes(backup.size) }}</td>
                                             <td>{{ backup.modified|date(dateTimeFormat ?: 'D, M j, Y g:i A') }}</td>
                                         </tr>
@@ -57,5 +66,14 @@
                 </div>
             {% endfor %}
         </div>
+
+        <p class="cb-legend">
+            <span class="cb-lock" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm-2 6V4.5a2 2 0 1 1 4 0V7H6Z"/>
+                </svg>
+            </span>
+            {{ 'File is password protected (zip detection available for local targets only).'|t('backup') }}
+        </p>
     {% endif %}
 </div>

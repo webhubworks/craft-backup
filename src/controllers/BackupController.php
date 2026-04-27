@@ -101,7 +101,7 @@ class BackupController extends Controller
     }
 
     /**
-     * @return array<string, array<int, array{name:string, size:int, modified:int}>>
+     * @return array<string, array<int, array{name:string, size:int, modified:int, encrypted:?bool}>>
      */
     private static function collectBackups(BackupConfig $config): array
     {
@@ -115,6 +115,7 @@ class BackupController extends Controller
                     'name' => basename($file['path']),
                     'size' => (int) $file['size'],
                     'modified' => (int) $file['modified'],
+                    'encrypted' => $file['encrypted'] ?? null,
                 ];
             }
 
