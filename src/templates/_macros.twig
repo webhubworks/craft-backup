@@ -1,6 +1,6 @@
-{% macro relativeTime(timestamp) %}
+{% macro relativeTime(timestamp, format) %}
     {%- if timestamp -%}
-        {{ timestamp|date('D, M j, Y g:i A') }}
+        {{ timestamp|date(format ?: 'D, M j, Y g:i A') }}
     {%- else -%}
         {{ 'Never'|t('backup') }}
     {%- endif -%}

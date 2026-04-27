@@ -45,7 +45,7 @@
                                         <tr>
                                             <td class="cb-mono">{{ backup.name }}</td>
                                             <td>{{ formatBytes(backup.size) }}</td>
-                                            <td>{{ backup.modified|date('D, M j, Y g:i A') }}</td>
+                                            <td>{{ backup.modified|date(dateTimeFormat ?: 'D, M j, Y g:i A') }}</td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>

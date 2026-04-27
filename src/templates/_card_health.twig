@@ -21,12 +21,14 @@
         <dt>{{ 'Last run'|t('backup') }}</dt>
         <dd>
             {% if lastRun %}
-                {{ relativeTime(lastRun.at) }}
-                {% if lastRun.status == 'ok' %}
-                    <span class="cb-badge cb-badge--ok" style="margin-left:8px;">{{ 'OK'|t('backup') }}</span>
-                {% else %}
-                    <span class="cb-badge cb-badge--failed" style="margin-left:8px;">{{ 'Failed'|t('backup') }}</span>
-                {% endif %}
+                <div class="cb-run-line">
+                    <span>{{ relativeTime(lastRun.at, dateTimeFormat) }}</span>
+                    {% if lastRun.status == 'ok' %}
+                        <span class="cb-badge cb-badge--ok">{{ 'OK'|t('backup') }}</span>
+                    {% else %}
+                        <span class="cb-badge cb-badge--failed">{{ 'Failed'|t('backup') }}</span>
+                    {% endif %}
+                </div>
             {% else %}
                 {{ 'No runs recorded yet'|t('backup') }}
             {% endif %}
@@ -35,7 +37,7 @@
         <dt>{{ 'Last successful run'|t('backup') }}</dt>
         <dd>
             {% if lastSuccessful %}
-                {{ relativeTime(lastSuccessful.at) }}
+                {{ relativeTime(lastSuccessful.at, dateTimeFormat) }}
             {% else %}
                 {{ 'Never'|t('backup') }}
             {% endif %}

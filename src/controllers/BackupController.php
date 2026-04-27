@@ -29,6 +29,7 @@ class BackupController extends Controller
                 'monitor' => Plugin::getInstance()->monitor->check($config),
                 'monitorEnabled' => $config->monitorBackups !== [],
                 'runState' => Plugin::getInstance()->runState->read(),
+                'dateTimeFormat' => $config->dateTimeFormat,
             ];
         });
     }
@@ -46,7 +47,10 @@ class BackupController extends Controller
     public function actionBackupsCard(): Response
     {
         return $this->renderCard('backup/_card_backups', function(BackupConfig $config) {
-            return ['backupsByTarget' => self::collectBackups($config)];
+            return [
+                'backupsByTarget' => self::collectBackups($config),
+                'dateTimeFormat' => $config->dateTimeFormat,
+            ];
         });
     }
 

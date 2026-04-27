@@ -230,5 +230,14 @@ return [
             //     'youngest_backup_should_be_within_the_last' => '6h'
             // ],
         ],
+
+        /**
+         * Optional PHP `date()` format applied to the timestamps shown in the
+         * "Backup health" and "Backups by target" cards on the Backup utility.
+         * Leave unset to use the default ('D, M j, Y g:i A').
+         *
+         * Example: 'D, d.m.y, H:i:s' for 'Mo., 27.04.26, 12:47:29'.
+         */
+         'date_time_format' => null,
     ],
 ];

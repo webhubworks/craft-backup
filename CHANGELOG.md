@@ -1,5 +1,13 @@
 # Release Notes for Craft Backup
 
+## 1.2.4 - 2026-04-27
+
+### Added
+- Optional `date_time_format` config value applied to the timestamps shown in the "Backup health" and "Backups by target" cards.
+
+### Changed
+- Tightened status badge layout in the Backup utility cards so badges no longer hang-indent when wrapping and per-target check badges only take the width they need.
+
 ## 1.2.3 - 2026-04-26
 
 ### Changed

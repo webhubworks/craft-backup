@@ -109,14 +109,31 @@
     display: none;
 }
 
+.cb-checks {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+}
+
 .cb-checks__row {
     display: grid;
-    grid-template-columns: 90px 1fr;
-    gap: 16px;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    column-gap: 16px;
     align-items: center;
     padding: 12px 0;
     border-bottom: 1px dashed #d8e0e9;
     font-size: 13px;
+}
+
+.cb-checks__row > .cb-badge {
+    justify-self: start;
+}
+
+.cb-run-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
 }
 
 .cb-checks__row:last-child {
