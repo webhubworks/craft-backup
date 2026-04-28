@@ -1,5 +1,18 @@
 # Release Notes for Craft Backup
 
+## 1.2.6 - 2026-04-28
+
+### Added
+- Per-target checks card now expands to reveal each individual check (target reachable, minimum backup count, youngest backup age) with pass/fail/skipped state. Failing targets auto-expand.
+- "Show checks" toggle on the Backup health card surfaces high-level signals: monitoring configured, last run recorded, last run succeeded, a successful backup exists, all targets healthy.
+- German translations (`src/translations/de/backup.php`) covering the full string catalog.
+
+### Changed
+- `BackupMonitor` now evaluates every configured check independently instead of bailing on first failure, and routes user-facing labels and reasons through `Craft::t('backup', …)` so the UI and `./craft backup/monitor` JSON output respect the active language.
+- Duration formatting in monitor results uses integer-only composites (`3h 12min`, `2d 4h`) instead of decimal hours/days like `2.1h`.
+- Backups-by-target table capped at 6.5 visible rows so the half-cut row hints at scrollability.
+- Renamed the table column "Modified" to "Created" — backup files are written once, so the file's mtime is effectively its creation time.
+
 ## 1.2.5 - 2026-04-27
 
 ### Added
