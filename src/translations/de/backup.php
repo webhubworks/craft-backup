@@ -59,8 +59,10 @@ return [
     'Disk usage: {used} used of {total}, {free} free' => 'Speicherbelegung: {used} belegt von {total}, {free} frei',
     'Free disk space is below the configured warning threshold.' => 'Der freie Speicher liegt unter dem konfigurierten Warn-Schwellenwert.',
     'Warning threshold: {threshold} free' => 'Warn-Schwellenwert: {threshold} frei',
+    'Warning threshold: {threshold} free ({percent}%)' => 'Warn-Schwellenwert: {threshold} frei ({percent}%)',
     'free' => 'frei',
     'of {total}' => 'von {total}',
     'used' => 'belegt',
     'warn below {threshold} free' => 'Warnung bei weniger als {threshold} frei',
+    'warn below {threshold} free ({percent}%)' => 'Warnung bei weniger als {threshold} frei ({percent}%)',
 ];

@@ -59,8 +59,10 @@ return [
     'Disk usage: {used} used of {total}, {free} free' => 'Disk usage: {used} used of {total}, {free} free',
     'Free disk space is below the configured warning threshold.' => 'Free disk space is below the configured warning threshold.',
     'Warning threshold: {threshold} free' => 'Warning threshold: {threshold} free',
+    'Warning threshold: {threshold} free ({percent}%)' => 'Warning threshold: {threshold} free ({percent}%)',
     'free' => 'free',
     'of {total}' => 'of {total}',
     'used' => 'used',
     'warn below {threshold} free' => 'warn below {threshold} free',
+    'warn below {threshold} free ({percent}%)' => 'warn below {threshold} free ({percent}%)',
 ];

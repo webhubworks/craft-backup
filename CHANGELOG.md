@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.9 - 2026-04-28
+
+### Added
+- `warn_when_disk_space_is_lower_than` now also accepts a percentage of total disk (e.g. `'20%'`, `'12.5%'`) in addition to absolute byte counts and shorthand. The "Backups by target" card surfaces the percent next to the resolved bytes in the legend and threshold marker tooltip (e.g. `warn below 11.22 GB free (20%)`).
+
 ## 1.2.8 - 2026-04-28
 
 ### Added

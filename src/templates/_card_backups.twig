@@ -35,7 +35,14 @@
                         {% set total = target.diskUsage.total %}
                         {% set free = target.diskUsage.free %}
                         {% set used = total - free %}
-                        {% set threshold = target.warnThreshold %}
+                        {% set thresholdInfo = target.warnThreshold %}
+                        {% set threshold = thresholdInfo ? thresholdInfo.bytes : null %}
+                        {% set thresholdPercent = thresholdInfo ? thresholdInfo.percent : null %}
+                        {% set percentLabel = thresholdPercent is not null
+                            ? (thresholdPercent == thresholdPercent|round(0)
+                                ? thresholdPercent|number_format(0)
+                                : thresholdPercent|number_format(2)|trim('0', 'right')|trim('.', 'right'))
+                            : null %}
                         {% set usedPct = total > 0 ? (used / total) * 100 : 0 %}
                         {% set isLow = threshold is not null and free < threshold %}
                         {% set thresholdPct = (threshold is not null and total > 0) ? ((total - threshold) / total) * 100 : null %}
@@ -50,7 +57,7 @@
                                 <div class="cb-disk__used" style="width: {{ usedPct|number_format(2, '.', '') }}%;"></div>
                                 {% if thresholdPct is not null %}
                                     <div class="cb-disk__threshold" style="left: {{ thresholdPct|number_format(2, '.', '') }}%;"
-                                        title="{{ 'Warning threshold: {threshold} free'|t('backup', { threshold: formatBytes(threshold) }) }}"></div>
+                                        title="{% if percentLabel is not null %}{{ 'Warning threshold: {threshold} free ({percent}%)'|t('backup', { threshold: formatBytes(threshold), percent: percentLabel }) }}{% else %}{{ 'Warning threshold: {threshold} free'|t('backup', { threshold: formatBytes(threshold) }) }}{% endif %}"></div>
                                 {% endif %}
                             </div>
                             <div class="cb-disk__legend">
@@ -67,7 +74,11 @@
                                 </span>
                                 {% if threshold is not null %}
                                     <span class="cb-disk__legend-item cb-disk__legend-item--threshold">
-                                        {{ 'warn below {threshold} free'|t('backup', { threshold: formatBytes(threshold) }) }}
+                                        {% if percentLabel is not null %}
+                                            {{ 'warn below {threshold} free ({percent}%)'|t('backup', { threshold: formatBytes(threshold), percent: percentLabel }) }}
+                                        {% else %}
+                                            {{ 'warn below {threshold} free'|t('backup', { threshold: formatBytes(threshold) }) }}
+                                        {% endif %}
                                     </span>
                                 {% endif %}
                             </div>

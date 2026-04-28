@@ -106,7 +106,7 @@ class BackupController extends Controller
      *     driver:?string,
      *     backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>,
      *     diskUsage:array{total:int, free:int}|null,
-     *     warnThreshold:?int,
+     *     warnThreshold:array{bytes:int, percent:?float}|null,
      * }>
      */
     private static function collectBackups(BackupConfig $config): array
@@ -140,8 +140,9 @@ class BackupController extends Controller
 
     /**
      * @param array{total:int, free:int}|null $diskUsage
+     * @return array{bytes:int, percent:?float}|null
      */
-    private static function warnThresholdFor(BackupConfig $config, string $targetName, ?array $diskUsage): ?int
+    private static function warnThresholdFor(BackupConfig $config, string $targetName, ?array $diskUsage): ?array
     {
         foreach ($config->monitorBackups as $rule) {
             if (!is_array($rule) || ($rule['target'] ?? null) !== $targetName) {
@@ -163,7 +164,10 @@ class BackupController extends Controller
             if (isset($parsed['percent']) && $diskUsage === null) {
                 return null;
             }
-            return Bytes::resolveThreshold($parsed, $diskUsage['total'] ?? 0);
+            return [
+                'bytes' => Bytes::resolveThreshold($parsed, $diskUsage['total'] ?? 0),
+                'percent' => $parsed['percent'] ?? null,
+            ];
         }
         return null;
     }
