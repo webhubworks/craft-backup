@@ -396,6 +396,35 @@
     background: #f3a3a3;
 }
 
+.cb-disk__backups {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: #64748b;
+    transition: width 240ms ease-out;
+}
+
+.cb-disk--low .cb-disk__backups {
+    background: #b94a4a;
+}
+
+.cb-disk__swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 5px;
+    border-radius: 2px;
+    vertical-align: baseline;
+    transform: translateY(-1px);
+}
+
+.cb-disk__swatch--backups {
+    background: #64748b;
+}
+
+.cb-disk--low .cb-disk__swatch--backups {
+    background: #b94a4a;
+}
+
 .cb-disk__threshold {
     position: absolute;
     top: -2px;

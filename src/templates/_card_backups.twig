@@ -97,6 +97,9 @@
                         {% set total = target.diskUsage.total %}
                         {% set free = target.diskUsage.free %}
                         {% set used = total - free %}
+                        {% set backupsBytes = target.backupsBytes ?? 0 %}
+                        {# Cap the backup-portion at the bar's used width so a stale total + fresh listing can't overflow visually. #}
+                        {% set backupsBytesShown = backupsBytes > used ? used : backupsBytes %}
                         {% set thresholdInfo = target.warnThreshold %}
                         {% set threshold = thresholdInfo ? thresholdInfo.bytes : null %}
                         {% set thresholdPercent = thresholdInfo ? thresholdInfo.percent : null %}
@@ -106,6 +109,7 @@
                                 : thresholdPercent|number_format(2)|trim('0', 'right')|trim('.', 'right'))
                             : null %}
                         {% set usedPct = total > 0 ? (used / total) * 100 : 0 %}
+                        {% set backupsPct = total > 0 ? (backupsBytesShown / total) * 100 : 0 %}
                         {% set isLow = threshold is not null and free < threshold %}
                         {% set thresholdPct = (threshold is not null and total > 0) ? ((total - threshold) / total) * 100 : null %}
 
@@ -117,12 +121,23 @@
                                     free: formatBytes(free),
                                 }) }}">
                                 <div class="cb-disk__used" style="width: {{ usedPct|number_format(2, '.', '') }}%;"></div>
+                                {% if backupsPct > 0 %}
+                                    <div class="cb-disk__backups" style="width: {{ backupsPct|number_format(2, '.', '') }}%;"
+                                        title="{{ 'Backups: {size}'|t('backup', { size: formatBytes(backupsBytes) }) }}"></div>
+                                {% endif %}
                                 {% if thresholdPct is not null %}
                                     <div class="cb-disk__threshold" style="left: {{ thresholdPct|number_format(2, '.', '') }}%;"
                                         title="{% if percentLabel is not null %}{{ 'Warning threshold: {threshold} free ({percent}%)'|t('backup', { threshold: formatBytes(threshold), percent: percentLabel }) }}{% else %}{{ 'Warning threshold: {threshold} free'|t('backup', { threshold: formatBytes(threshold) }) }}{% endif %}"></div>
                                 {% endif %}
                             </div>
                             <div class="cb-disk__legend">
+                                {% if backupsBytes > 0 %}
+                                    <span class="cb-disk__legend-item cb-disk__legend-item--backups">
+                                        <span class="cb-disk__swatch cb-disk__swatch--backups" aria-hidden="true"></span>
+                                        <strong>{{ formatBytes(backupsBytes) }}</strong>
+                                        {{ 'backups'|t('backup') }}
+                                    </span>
+                                {% endif %}
                                 <span class="cb-disk__legend-item">
                                     <strong>{{ formatBytes(used) }}</strong>
                                     {{ 'used'|t('backup') }}

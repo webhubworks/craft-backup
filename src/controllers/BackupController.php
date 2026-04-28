@@ -105,6 +105,7 @@ class BackupController extends Controller
      * @return array<string, array{
      *     driver:?string,
      *     backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>,
+     *     backupsBytes:int,
      *     diskUsage:array{total:int, free:int}|null,
      *     warnThreshold:array{bytes:int, percent:?float}|null,
      * }>
@@ -116,10 +117,13 @@ class BackupController extends Controller
         $byTarget = [];
         foreach ($status as $targetName => $entry) {
             $rows = [];
+            $bytes = 0;
             foreach ($entry['backups'] as $file) {
+                $size = (int) $file['size'];
+                $bytes += $size;
                 $rows[] = [
                     'name' => basename($file['path']),
-                    'size' => (int) $file['size'],
+                    'size' => $size,
                     'modified' => (int) $file['modified'],
                     'encrypted' => $file['encrypted'] ?? null,
                 ];
@@ -130,6 +134,7 @@ class BackupController extends Controller
             $byTarget[$targetName] = [
                 'driver' => $config->targets[$targetName]['driver'] ?? null,
                 'backups' => $rows,
+                'backupsBytes' => $bytes,
                 'diskUsage' => $entry['diskUsage'],
                 'warnThreshold' => self::warnThresholdFor($config, $targetName, $entry['diskUsage']),
             ];

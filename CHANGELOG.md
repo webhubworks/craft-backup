@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.12 - 2026-04-28
+
+### Added
+- "Backups by target" disk usage bar now overlays a darker first segment showing how much of the volume's used space is taken up by the listed backup files, with a matching size in the legend (e.g. `8.42 GB backups`).
+
 ## 1.2.11 - 2026-04-28
 
 ### Added
