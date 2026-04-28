@@ -89,4 +89,9 @@ class SftpTarget implements TargetInterface
     {
         $this->fs->delete($path);
     }
+
+    public function diskUsage(): ?array
+    {
+        return null;
+    }
 }

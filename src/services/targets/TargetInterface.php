@@ -14,4 +14,12 @@ interface TargetInterface
     public function list(): array;
 
     public function delete(string $path): void;
+
+    /**
+     * Returns total/free disk bytes for the volume backing this target, or null
+     * if the driver cannot determine it (e.g. remote SFTP).
+     *
+     * @return array{total: int, free: int}|null
+     */
+    public function diskUsage(): ?array;
 }

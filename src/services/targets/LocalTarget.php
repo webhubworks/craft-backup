@@ -95,4 +95,19 @@ class LocalTarget implements TargetInterface
             unlink($path);
         }
     }
+
+    public function diskUsage(): ?array
+    {
+        if (!is_dir($this->root)) {
+            return null;
+        }
+
+        $total = @disk_total_space($this->root);
+        $free = @disk_free_space($this->root);
+        if ($total === false || $free === false) {
+            return null;
+        }
+
+        return ['total' => (int) $total, 'free' => (int) $free];
+    }
 }

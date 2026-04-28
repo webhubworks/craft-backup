@@ -8,6 +8,7 @@ use craft\web\View;
 use Throwable;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\Plugin;
+use webhubworks\backup\services\Bytes;
 use yii\web\BadRequestHttpException;
 use yii\web\Response;
 
@@ -101,16 +102,21 @@ class BackupController extends Controller
     }
 
     /**
-     * @return array<string, array{driver:?string, backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>}>
+     * @return array<string, array{
+     *     driver:?string,
+     *     backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>,
+     *     diskUsage:array{total:int, free:int}|null,
+     *     warnThreshold:?int,
+     * }>
      */
     private static function collectBackups(BackupConfig $config): array
     {
-        $listings = Plugin::getInstance()->runner->list($config);
+        $status = Plugin::getInstance()->runner->status($config);
 
         $byTarget = [];
-        foreach ($listings as $targetName => $files) {
+        foreach ($status as $targetName => $entry) {
             $rows = [];
-            foreach ($files as $file) {
+            foreach ($entry['backups'] as $file) {
                 $rows[] = [
                     'name' => basename($file['path']),
                     'size' => (int) $file['size'],
@@ -124,9 +130,41 @@ class BackupController extends Controller
             $byTarget[$targetName] = [
                 'driver' => $config->targets[$targetName]['driver'] ?? null,
                 'backups' => $rows,
+                'diskUsage' => $entry['diskUsage'],
+                'warnThreshold' => self::warnThresholdFor($config, $targetName, $entry['diskUsage']),
             ];
         }
 
         return $byTarget;
+    }
+
+    /**
+     * @param array{total:int, free:int}|null $diskUsage
+     */
+    private static function warnThresholdFor(BackupConfig $config, string $targetName, ?array $diskUsage): ?int
+    {
+        foreach ($config->monitorBackups as $rule) {
+            if (!is_array($rule) || ($rule['target'] ?? null) !== $targetName) {
+                continue;
+            }
+            if (!array_key_exists('warn_when_disk_space_is_lower_than', $rule)) {
+                return null;
+            }
+            try {
+                $parsed = Bytes::parseThreshold($rule['warn_when_disk_space_is_lower_than']);
+            } catch (Throwable) {
+                return null;
+            }
+            if ($parsed === null) {
+                return null;
+            }
+            // Percentage thresholds need a total; if the driver doesn't expose
+            // disk usage there's nothing meaningful to render.
+            if (isset($parsed['percent']) && $diskUsage === null) {
+                return null;
+            }
+            return Bytes::resolveThreshold($parsed, $diskUsage['total'] ?? 0);
+        }
+        return null;
     }
 }

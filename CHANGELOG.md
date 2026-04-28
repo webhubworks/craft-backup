@@ -1,5 +1,14 @@
 # Release Notes for Craft Backup
 
+## 1.2.8 - 2026-04-28
+
+### Added
+- Per-target disk usage bar above each tab in the "Backups by target" card, showing used/free space. Optional `warn_when_disk_space_is_lower_than` per `monitor_backups` rule (e.g. `'5GB'`, `'500MB'`, or a percentage like `'20%'`) draws a warn marker on the bar and turns it red once free space drops below the threshold. Only the `local` driver reports disk usage.
+- `logging.notify_on_low_disk_space`: email recipients alerted after a backup run if any target's free space fell below its configured warn threshold.
+
+### Changed
+- Renamed the Utilities entry from "Backup" to "Backups".
+
 ## 1.2.7 - 2026-04-28
 
 ### Changed

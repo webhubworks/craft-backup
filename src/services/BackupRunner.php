@@ -32,6 +32,7 @@ class BackupRunner extends Component
         $archiveBytes = 0;
         $targetStatuses = [];
         $errors = [];
+        $lowDiskTargets = [];
 
         try {
             if (!($flags['only_files'] ?? false)) {
@@ -61,6 +62,12 @@ class BackupRunner extends Component
                     $target->upload($archivePath, basename($archivePath), $config);
                     $targetStatuses[$name] = 'ok';
                     $logger->info("Uploaded to {$name}");
+
+                    $low = $this->checkLowDisk($name, $target, $config);
+                    if ($low !== null) {
+                        $lowDiskTargets[$name] = $low;
+                        $logger->warning("Free disk on {$name} is below the configured warning threshold", $low);
+                    }
                 } catch (Throwable $e) {
                     $targetStatuses[$name] = 'failed: ' . $e->getMessage();
                     $errors[] = "target {$name}: " . $e->getMessage();
@@ -86,11 +93,12 @@ class BackupRunner extends Component
             FileHelper::removeDirectory($stagingDir);
         }
 
-        $result = $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors);
+        $result = $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
 
         if (!($flags['dry_run'] ?? false)) {
             (new RunStateStore())->record($result);
             $this->notify($config, $result, $logger);
+            $this->notifyLowDisk($config, $result, $logger);
         }
 
         return $result;
@@ -104,6 +112,28 @@ class BackupRunner extends Component
         $out = [];
         foreach ($this->targetsFor($config, null) as $name => $target) {
             $out[$name] = $target->list();
+        }
+        return $out;
+    }
+
+    /**
+     * Per-target snapshot used by the Backups-by-target card: listing plus
+     * current disk usage of the volume backing the target (null when the
+     * driver doesn't expose it, e.g. SFTP).
+     *
+     * @return array<string, array{
+     *     backups: array<int, array{path:string, size:int, modified:int, encrypted:?bool}>,
+     *     diskUsage: array{total:int, free:int}|null,
+     * }>
+     */
+    public function status(BackupConfig $config): array
+    {
+        $out = [];
+        foreach ($this->targetsFor($config, null) as $name => $target) {
+            $out[$name] = [
+                'backups' => $target->list(),
+                'diskUsage' => $target->diskUsage(),
+            ];
         }
         return $out;
     }
@@ -193,7 +223,7 @@ class BackupRunner extends Component
         return $base;
     }
 
-    private function result(string $runId, ?string $archive, int $bytes, float $start, array $statuses, array $errors): BackupResult
+    private function result(string $runId, ?string $archive, int $bytes, float $start, array $statuses, array $errors, array $lowDiskTargets = []): BackupResult
     {
         return new BackupResult(
             runId: $runId,
@@ -202,7 +232,53 @@ class BackupRunner extends Component
             durationSeconds: microtime(true) - $start,
             targetStatuses: $statuses,
             errors: $errors,
+            lowDiskTargets: $lowDiskTargets,
         );
+    }
+
+    /**
+     * @return array{free:int, threshold:int, total:int}|null
+     */
+    private function checkLowDisk(string $targetName, TargetInterface $target, BackupConfig $config): ?array
+    {
+        $usage = $target->diskUsage();
+        if ($usage === null) {
+            return null;
+        }
+
+        $threshold = $this->warnThresholdFor($config, $targetName, $usage['total']);
+        if ($threshold === null) {
+            return null;
+        }
+
+        if ($usage['free'] >= $threshold) {
+            return null;
+        }
+
+        return [
+            'free' => $usage['free'],
+            'threshold' => $threshold,
+            'total' => $usage['total'],
+        ];
+    }
+
+    private function warnThresholdFor(BackupConfig $config, string $targetName, int $totalBytes): ?int
+    {
+        foreach ($config->monitorBackups as $rule) {
+            if (!is_array($rule) || ($rule['target'] ?? null) !== $targetName) {
+                continue;
+            }
+            if (!array_key_exists('warn_when_disk_space_is_lower_than', $rule)) {
+                return null;
+            }
+            try {
+                $parsed = Bytes::parseThreshold($rule['warn_when_disk_space_is_lower_than']);
+            } catch (Throwable) {
+                return null;
+            }
+            return $parsed === null ? null : Bytes::resolveThreshold($parsed, $totalBytes);
+        }
+        return null;
     }
 
     private function logger(string $runId): BackupLogger
@@ -261,5 +337,65 @@ class BackupRunner extends Component
         } catch (Throwable $e) {
             $logger->warning('Failed to send notification', ['error' => $e->getMessage()]);
         }
+    }
+
+    private function notifyLowDisk(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
+    {
+        if ($result->lowDiskTargets === []) {
+            return;
+        }
+
+        $recipients = array_filter((array) ($config->logging['notify_on_low_disk_space'] ?? []));
+        if ($recipients === []) {
+            return;
+        }
+
+        $siteName = Craft::$app->getSystemName() ?: $config->name;
+        $subject = "[Craft Backup] Low disk space on {$siteName}";
+
+        $lines = [
+            'One or more backup targets fell below their configured free-disk warning threshold after the latest backup.',
+            '',
+            "Site:   {$siteName}",
+            "Run ID: {$result->runId}",
+            '',
+            'Targets:',
+        ];
+        foreach ($result->lowDiskTargets as $name => $info) {
+            $lines[] = sprintf(
+                '  - %s: %s free of %s (threshold %s)',
+                $name,
+                $this->formatBytes($info['free']),
+                $this->formatBytes($info['total']),
+                $this->formatBytes($info['threshold']),
+            );
+        }
+
+        try {
+            Craft::$app->getMailer()
+                ->compose()
+                ->setTo($recipients)
+                ->setSubject($subject)
+                ->setTextBody(implode(PHP_EOL, $lines))
+                ->send();
+
+            $logger->info('low-disk notification sent', ['to' => $recipients, 'targets' => array_keys($result->lowDiskTargets)]);
+        } catch (Throwable $e) {
+            $logger->warning('Failed to send low-disk notification', ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1024 ** 3) {
+            return number_format($bytes / (1024 ** 3), 2) . ' GB';
+        }
+        if ($bytes >= 1024 ** 2) {
+            return number_format($bytes / (1024 ** 2), 2) . ' MB';
+        }
+        if ($bytes >= 1024) {
+            return number_format($bytes / 1024, 1) . ' KB';
+        }
+        return $bytes . ' B';
     }
 }

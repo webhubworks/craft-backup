@@ -216,13 +216,46 @@ return [
              * Useful for confirming scheduled backups are actually running. Empty array disables notifications.
              */
             'notify_on_success' => [],
+            /**
+             * Email addresses to notify when, after a backup run, the free disk
+             * space on a target drops below its configured
+             * 'warn_when_disk_space_is_lower_than' threshold (see monitor_backups
+             * below). Only fires for targets whose driver can report disk usage
+             * (currently 'local'). Empty array disables notifications.
+             */
+            'notify_on_low_disk_space' => [],
         ],
 
+        /**
+         * Per-target health rules.
+         *
+         * Each rule supports:
+         *
+         *   target                                    The target name from 'targets' (required).
+         *   min_number_of_backups                     Optional. Minimum count expected on the target.
+         *   youngest_backup_should_be_within_the_last Optional. Max age of the newest backup, e.g. '6h', '2d'.
+         *   warn_when_disk_space_is_lower_than        Optional. Free-disk warning threshold for the
+         *                                             volume backing the target. Accepts:
+         *                                               - byte counts ('524288000')
+         *                                               - shorthand ('500MB', '5GB', '1TB')
+         *                                               - percentage of total disk ('20%', '12.5%') —
+         *                                                 e.g. '20%' on a 1TB volume warns when free
+         *                                                 drops below 200GB
+         *                                             When set, the "Backups by target" card draws a
+         *                                             warn marker on the disk usage bar; falling
+         *                                             below the threshold turns the bar red and
+         *                                             triggers an email to
+         *                                             logging.notify_on_low_disk_space after the
+         *                                             next backup run. Default: null. Only honored
+         *                                             for targets whose driver can report disk usage
+         *                                             (currently 'local').
+         */
         'monitor_backups' => [
             [
                 'target' => 'local',
                 'min_number_of_backups' => 1,
                 'youngest_backup_should_be_within_the_last' => '6h',
+                'warn_when_disk_space_is_lower_than' => null,
             ],
             // [
             //     'target' => 'offsite',

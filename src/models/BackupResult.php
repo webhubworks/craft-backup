@@ -4,7 +4,11 @@ namespace webhubworks\backup\models;
 
 final class BackupResult
 {
-    /** @param array<string, string> $targetStatuses target name => 'ok' | 'failed: reason' */
+    /**
+     * @param array<string, string> $targetStatuses target name => 'ok' | 'failed: reason'
+     * @param array<string, array{free:int, threshold:int, total:int}> $lowDiskTargets
+     *        target name => post-upload disk snapshot for targets that fell below their warn threshold
+     */
     public function __construct(
         public readonly string $runId,
         public readonly ?string $archivePath,
@@ -12,6 +16,7 @@ final class BackupResult
         public readonly float $durationSeconds,
         public readonly array $targetStatuses,
         public readonly array $errors,
+        public readonly array $lowDiskTargets = [],
     ) {
     }
 

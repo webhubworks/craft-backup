@@ -9,6 +9,6 @@ class BackupUtility extends DbBackup
 {
     public static function displayName(): string
     {
-        return Craft::t('backup', 'Backup');
+        return Craft::t('backup', 'Backups');
     }
 }
