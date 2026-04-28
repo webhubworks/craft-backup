@@ -7,18 +7,63 @@
         <div class="cb-checks">
             {% if monitor.checks is defined %}
                 {% for check in monitor.checks %}
-                    <div class="cb-checks__row">
-                        {% if check.status == 'ok' %}
-                            <span class="cb-badge cb-badge--ok">{{ 'OK'|t('backup') }}</span>
-                        {% else %}
-                            <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                    {% set items = check.items ?? [] %}
+                    {% set total = items|length %}
+                    {% set passed = 0 %}
+                    {% set failed = 0 %}
+                    {% set skipped = 0 %}
+                    {% for item in items %}
+                        {% if item.status == 'ok' %}{% set passed = passed + 1 %}
+                        {% elseif item.status == 'failure' %}{% set failed = failed + 1 %}
+                        {% elseif item.status == 'skipped' %}{% set skipped = skipped + 1 %}
                         {% endif %}
+                    {% endfor %}
 
-                        <div class="cb-checks__detail">
-                            <strong>{{ check.target }}</strong>
-                            {% if check.reason is defined %}{{ check.reason }}{% else %}{{ 'All checks passed.'|t('backup') }}{% endif %}
-                        </div>
-                    </div>
+                    <details class="cb-check-group" {% if check.status != 'ok' %}open{% endif %}>
+                        <summary class="cb-check-group__summary">
+                            {% if check.status == 'ok' %}
+                                <span class="cb-badge cb-badge--ok">{{ 'OK'|t('backup') }}</span>
+                            {% else %}
+                                <span class="cb-badge cb-badge--warning">{{ 'WARNING'|t('backup') }}</span>
+                            {% endif %}
+
+                            <span class="cb-check-group__target">{{ check.target }}</span>
+
+                            <span class="cb-check-group__count">
+                                {% if total > 0 %}
+                                    {% if failed > 0 %}
+                                        {{ '{n} of {total} checks failing'|t('backup', { n: failed, total: total }) }}
+                                    {% elseif skipped > 0 %}
+                                        {{ '{passed} of {total} checks passed, {skipped} skipped'|t('backup', { passed: passed, total: total, skipped: skipped }) }}
+                                    {% else %}
+                                        {{ '{passed} of {total} checks passed'|t('backup', { passed: passed, total: total }) }}
+                                    {% endif %}
+                                {% else %}
+                                    {{ check.reason ?? 'All checks passed.'|t('backup') }}
+                                {% endif %}
+                            </span>
+
+                            <span class="cb-check-group__chevron" aria-hidden="true"></span>
+                        </summary>
+
+                        {% if items|length %}
+                            <ul class="cb-check-list">
+                                {% for item in items %}
+                                    <li class="cb-check-list__item cb-check-list__item--{{ item.status }}">
+                                        <span class="cb-check-icon cb-check-icon--{{ item.status }}" aria-hidden="true">
+                                            {% if item.status == 'ok' %}✓
+                                            {%- elseif item.status == 'failure' %}✕
+                                            {%- else %}–{% endif %}
+                                        </span>
+                                        <span class="cb-check-list__label">{{ item.label }}</span>
+                                        {% if item.detail is defined %}
+                                            <span class="cb-check-list__detail">{{ item.detail }}</span>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </details>
                 {% endfor %}
             {% else %}
                 <div class="cb-checks__row">

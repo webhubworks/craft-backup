@@ -3,18 +3,83 @@
 {% set lastRun = runState.lastRun %}
 {% set lastSuccessful = runState.lastSuccessfulRun %}
 
+{% set healthChecks = [] %}
+{% if monitorEnabled %}
+    {% set healthChecks = healthChecks|merge([{
+        id: 'monitoring_configured',
+        label: 'Monitoring is configured'|t('backup'),
+        status: 'ok',
+    }]) %}
+{% endif %}
+
+{% set healthChecks = healthChecks|merge([{
+    id: 'last_run_recorded',
+    label: 'A backup run has been recorded'|t('backup'),
+    status: lastRun ? 'ok' : 'failure',
+    detail: lastRun ? null : 'No runs recorded yet'|t('backup'),
+}]) %}
+
+{% if lastRun %}
+    {% set healthChecks = healthChecks|merge([{
+        id: 'last_run_succeeded',
+        label: 'Last run completed successfully'|t('backup'),
+        status: lastRun.status == 'ok' ? 'ok' : 'failure',
+        detail: lastRun.status == 'ok' ? null : (lastRun.errors|length ? lastRun.errors|first : 'Last run failed'|t('backup')),
+    }]) %}
+{% endif %}
+
+{% set healthChecks = healthChecks|merge([{
+    id: 'has_successful_run',
+    label: 'A successful backup exists'|t('backup'),
+    status: lastSuccessful ? 'ok' : 'failure',
+    detail: lastSuccessful ? null : 'No successful run yet'|t('backup'),
+}]) %}
+
+{% if monitorEnabled and monitor.checks is defined %}
+    {% set targetsTotal = monitor.checks|length %}
+    {% set targetsHealthy = 0 %}
+    {% for c in monitor.checks %}
+        {% if c.status == 'ok' %}{% set targetsHealthy = targetsHealthy + 1 %}{% endif %}
+    {% endfor %}
+    {% set healthChecks = healthChecks|merge([{
+        id: 'targets_healthy',
+        label: 'All target checks pass'|t('backup'),
+        status: targetsHealthy == targetsTotal ? 'ok' : 'failure',
+        detail: '{healthy} of {total} targets healthy'|t('backup', { healthy: targetsHealthy, total: targetsTotal }),
+    }]) %}
+{% endif %}
+
+{% set hasFailingHealthCheck = false %}
+{% for item in healthChecks %}
+    {% if item.status == 'failure' %}{% set hasFailingHealthCheck = true %}{% endif %}
+{% endfor %}
+{% set toggleId = 'cb-health-checks-toggle' %}
+
 <div class="cb-card">
     <h2>{{ 'Backup health'|t('backup') }}</h2>
+
+    <input
+        type="checkbox"
+        id="{{ toggleId }}"
+        class="cb-health-checks__input"
+        {% if hasFailingHealthCheck %}checked{% endif %}
+    >
 
     <dl class="cb-rows">
         {% if monitorEnabled %}
             <dt>{{ 'Status'|t('backup') }}</dt>
             <dd>
-                {% if monitor.status == 'ok' %}
-                    <span class="cb-badge cb-badge--ok">{{ 'Healthy'|t('backup') }}</span>
-                {% else %}
-                    <span class="cb-badge cb-badge--warning">{{ 'Not healthy'|t('backup') }}</span>
-                {% endif %}
+                <div class="cb-status-line">
+                    {% if monitor.status == 'ok' %}
+                        <span class="cb-badge cb-badge--ok">{{ 'Healthy'|t('backup') }}</span>
+                    {% else %}
+                        <span class="cb-badge cb-badge--warning">{{ 'Not healthy'|t('backup') }}</span>
+                    {% endif %}
+                    <label for="{{ toggleId }}" class="cb-health-checks__toggle">
+                        <span class="cb-health-checks__toggle-show">{{ 'Show checks'|t('backup') }}</span>
+                        <span class="cb-health-checks__toggle-hide">{{ 'Hide checks'|t('backup') }}</span>
+                    </label>
+                </div>
             </dd>
         {% endif %}
 
@@ -56,4 +121,22 @@
             </dd>
         {% endif %}
     </dl>
+
+    <div class="cb-health-checks">
+        <ul class="cb-check-list cb-check-list--flush">
+            {% for item in healthChecks %}
+                <li class="cb-check-list__item cb-check-list__item--{{ item.status }}">
+                    <span class="cb-check-icon cb-check-icon--{{ item.status }}" aria-hidden="true">
+                        {% if item.status == 'ok' %}✓
+                        {%- elseif item.status == 'failure' %}✕
+                        {%- else %}–{% endif %}
+                    </span>
+                    <span class="cb-check-list__label">{{ item.label }}</span>
+                    {% if item.detail is defined and item.detail %}
+                        <span class="cb-check-list__detail">{{ item.detail }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
 </div>

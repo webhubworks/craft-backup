@@ -19,7 +19,16 @@ use yii\base\Component;
 class BackupMonitor extends Component
 {
     /**
-     * @return array{status: 'ok'|'failure', checks: array<int, array{target: string, status: 'ok'|'failure', reason?: string}>}
+     * @return array{
+     *     status: 'ok'|'failure',
+     *     reason?: string,
+     *     checks?: array<int, array{
+     *         target: string,
+     *         status: 'ok'|'failure',
+     *         reason?: string,
+     *         items: array<int, array{id: string, label: string, status: 'ok'|'failure'|'skipped', detail?: string}>
+     *     }>
+     * }
      */
     public function check(BackupConfig $config): array
     {
@@ -48,71 +57,112 @@ class BackupMonitor extends Component
     }
 
     /**
-     * @return array{target: string, status: 'ok'|'failure', reason?: string}
+     * @return array{
+     *     target: string,
+     *     status: 'ok'|'failure',
+     *     reason?: string,
+     *     items: array<int, array{id: string, label: string, status: 'ok'|'failure'|'skipped', detail?: string}>
+     * }
      */
     private function checkRule(BackupConfig $config, mixed $rule, int $index): array
     {
         if (!is_array($rule)) {
-            return $this->failure("(rule #{$index})", "Monitor rule #{$index} must be an array.");
+            return $this->groupResult("(rule #{$index})", [
+                $this->item('rule_valid', "Rule is a valid array", 'failure', "Rule #{$index} must be an array."),
+            ]);
         }
 
         $targetName = $rule['target'] ?? null;
         if (!is_string($targetName) || $targetName === '') {
-            return $this->failure("(rule #{$index})", "Monitor rule #{$index} is missing a 'target' name.");
+            return $this->groupResult("(rule #{$index})", [
+                $this->item('rule_target_set', "Rule has a target name", 'failure', "Rule #{$index} is missing a 'target' name."),
+            ]);
         }
+
+        $hasMin = array_key_exists('min_number_of_backups', $rule);
+        $hasAge = array_key_exists('youngest_backup_should_be_within_the_last', $rule);
+        $minLabel = $hasMin ? 'Minimum number of backups' : null;
+        $ageLabel = $hasAge ? sprintf('Youngest backup within %s', (string) $rule['youngest_backup_should_be_within_the_last']) : null;
+
+        $items = [];
 
         if (!array_key_exists($targetName, $config->targets)) {
-            return $this->failure($targetName, "Target '{$targetName}' is not defined in the 'targets' config.");
+            $items[] = $this->item('target_reachable', 'Target is reachable', 'failure', "Target '{$targetName}' is not defined in the 'targets' config.");
+            if ($hasMin) {
+                $items[] = $this->item('min_backups', $minLabel, 'skipped', 'Skipped — target not defined.');
+            }
+            if ($hasAge) {
+                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', 'Skipped — target not defined.');
+            }
+            return $this->groupResult($targetName, $items);
         }
 
+        // 1. Target is reachable
         try {
             $target = $this->buildTarget($config->targets[$targetName]);
             $files = $target->list();
+            $items[] = $this->item('target_reachable', 'Target is reachable', 'ok');
         } catch (Throwable $e) {
-            return $this->failure($targetName, "Could not list backups on target '{$targetName}': " . $e->getMessage());
+            $items[] = $this->item('target_reachable', 'Target is reachable', 'failure', "Could not list backups: " . $e->getMessage());
+            if ($hasMin) {
+                $items[] = $this->item('min_backups', $minLabel, 'skipped', 'Skipped — target unreachable.');
+            }
+            if ($hasAge) {
+                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', 'Skipped — target unreachable.');
+            }
+            return $this->groupResult($targetName, $items);
         }
 
-        if (array_key_exists('min_number_of_backups', $rule)) {
+        // 3. Minimum number of backups
+        if ($hasMin) {
             $min = $rule['min_number_of_backups'];
             if (!is_int($min) || $min < 0) {
-                return $this->failure($targetName, "'min_number_of_backups' must be a non-negative integer.");
-            }
-            if (count($files) < $min) {
-                return $this->failure(
-                    $targetName,
-                    sprintf("Target '%s' has %d backup(s); expected at least %d.", $targetName, count($files), $min)
+                $items[] = $this->item('min_backups', 'Minimum number of backups', 'failure', "'min_number_of_backups' must be a non-negative integer.");
+            } else {
+                $count = count($files);
+                $ok = $count >= $min;
+                $items[] = $this->item(
+                    'min_backups',
+                    sprintf('At least %d backup(s) present', $min),
+                    $ok ? 'ok' : 'failure',
+                    $ok
+                        ? sprintf('Found %d', $count)
+                        : sprintf('Found only %d, expected at least %d.', $count, $min),
                 );
             }
         }
 
-        $ageKey = 'youngest_backup_should_be_within_the_last';
-        if (array_key_exists($ageKey, $rule)) {
+        // 4. Youngest backup within max age
+        if ($hasAge) {
+            $rawAge = (string) $rule['youngest_backup_should_be_within_the_last'];
+            $maxAgeSeconds = null;
             try {
-                $maxAgeSeconds = $this->parseDuration((string) $rule[$ageKey]);
+                $maxAgeSeconds = $this->parseDuration($rawAge);
             } catch (InvalidArgumentException $e) {
-                return $this->failure($targetName, "Invalid '{$ageKey}' on target '{$targetName}': " . $e->getMessage());
+                $items[] = $this->item('youngest_age', "Youngest backup within {$rawAge}", 'failure', $e->getMessage());
             }
 
-            if ($files === []) {
-                return $this->failure($targetName, "Target '{$targetName}' has no backups.");
-            }
-
-            $youngest = max(array_column($files, 'modified'));
-            $ageSeconds = time() - (int) $youngest;
-            if ($ageSeconds > $maxAgeSeconds) {
-                return $this->failure(
-                    $targetName,
-                    sprintf(
-                        "Youngest backup on '%s' is %s old; max allowed is %s.",
-                        $targetName,
-                        $this->formatDuration($ageSeconds),
-                        (string) $rule[$ageKey]
-                    )
-                );
+            if ($maxAgeSeconds !== null) {
+                if ($files === []) {
+                    $items[] = $this->item('youngest_age', "Youngest backup within {$rawAge}", 'failure', 'No backups found on target.');
+                } else {
+                    $youngest = max(array_column($files, 'modified'));
+                    $ageSeconds = time() - (int) $youngest;
+                    $ok = $ageSeconds <= $maxAgeSeconds;
+                    $formatted = $this->formatDuration(max(0, $ageSeconds));
+                    $items[] = $this->item(
+                        'youngest_age',
+                        "Youngest backup within {$rawAge}",
+                        $ok ? 'ok' : 'failure',
+                        $ok
+                            ? "Last backup {$formatted} ago"
+                            : "Last backup {$formatted} ago; max allowed is {$rawAge}.",
+                    );
+                }
             }
         }
 
-        return ['target' => $targetName, 'status' => 'ok'];
+        return $this->groupResult($targetName, $items);
     }
 
     /**
@@ -136,16 +186,22 @@ class BackupMonitor extends Component
 
     private function formatDuration(int $seconds): string
     {
-        if ($seconds >= 86400) {
-            return sprintf('%.1fd', $seconds / 86400);
+        $seconds = max(0, $seconds);
+
+        if ($seconds < 60) {
+            return "{$seconds}s";
         }
-        if ($seconds >= 3600) {
-            return sprintf('%.1fh', $seconds / 3600);
+        if ($seconds < 3600) {
+            return intdiv($seconds, 60) . 'min';
         }
-        if ($seconds >= 60) {
-            return sprintf('%dm', intdiv($seconds, 60));
+        if ($seconds < 86400) {
+            $h = intdiv($seconds, 3600);
+            $m = intdiv($seconds % 3600, 60);
+            return $m > 0 ? "{$h}h {$m}min" : "{$h}h";
         }
-        return "{$seconds}s";
+        $d = intdiv($seconds, 86400);
+        $h = intdiv($seconds % 86400, 3600);
+        return $h > 0 ? "{$d}d {$h}h" : "{$d}d";
     }
 
     private function buildTarget(array $def): TargetInterface
@@ -158,10 +214,37 @@ class BackupMonitor extends Component
     }
 
     /**
-     * @return array{target: string, status: 'failure', reason: string}
+     * @param array<int, array{id: string, label: string, status: 'ok'|'failure'|'skipped', detail?: string}> $items
+     * @return array{target: string, status: 'ok'|'failure', reason?: string, items: array<int, array{id: string, label: string, status: 'ok'|'failure'|'skipped', detail?: string}>}
      */
-    private function failure(string $target, string $reason): array
+    private function groupResult(string $target, array $items): array
     {
-        return ['target' => $target, 'status' => 'failure', 'reason' => $reason];
+        $status = 'ok';
+        $reason = null;
+        foreach ($items as $item) {
+            if ($item['status'] === 'failure') {
+                $status = 'failure';
+                $reason = $item['detail'] ?? $item['label'];
+                break;
+            }
+        }
+
+        $result = ['target' => $target, 'status' => $status, 'items' => $items];
+        if ($reason !== null) {
+            $result['reason'] = $reason;
+        }
+        return $result;
+    }
+
+    /**
+     * @return array{id: string, label: string, status: 'ok'|'failure'|'skipped', detail?: string}
+     */
+    private function item(string $id, string $label, string $status, ?string $detail = null): array
+    {
+        $out = ['id' => $id, 'label' => $label, 'status' => $status];
+        if ($detail !== null && $detail !== '') {
+            $out['detail'] = $detail;
+        }
+        return $out;
     }
 }

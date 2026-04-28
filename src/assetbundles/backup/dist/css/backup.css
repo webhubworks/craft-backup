@@ -110,14 +110,13 @@
 }
 
 .cb-checks {
-    display: grid;
-    grid-template-columns: max-content 1fr;
+    display: flex;
+    flex-direction: column;
 }
 
 .cb-checks__row {
     display: grid;
-    grid-template-columns: subgrid;
-    grid-column: 1 / -1;
+    grid-template-columns: max-content 1fr;
     column-gap: 16px;
     align-items: center;
     padding: 12px 0;
@@ -147,6 +146,207 @@
 .cb-checks__detail strong {
     color: #1f2933;
     margin-right: 8px;
+}
+
+/* Collapsible per-target groups */
+
+.cb-check-group {
+    border-bottom: 1px dashed #d8e0e9;
+}
+
+.cb-check-group:last-child {
+    border-bottom: none;
+}
+
+.cb-check-group__summary {
+    display: grid;
+    grid-template-columns: max-content max-content 1fr max-content;
+    align-items: center;
+    column-gap: 16px;
+    padding: 12px 0;
+    cursor: pointer;
+    list-style: none;
+    min-height: 44px;
+    font-size: 13px;
+}
+
+.cb-check-group__summary::-webkit-details-marker {
+    display: none;
+}
+
+.cb-check-group__summary:focus-visible {
+    outline: 2px solid #4b6bff;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.cb-check-group__target {
+    font-weight: 700;
+    color: #1f2933;
+}
+
+.cb-check-group__count {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+.cb-check-group__chevron {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #6b7280;
+    transition: transform 200ms ease-out;
+    transform-origin: center;
+}
+
+.cb-check-group[open] > .cb-check-group__summary .cb-check-group__chevron {
+    transform: rotate(180deg);
+}
+
+.cb-check-group[open] > .cb-check-group__summary {
+    border-bottom: 1px solid #eef1f5;
+}
+
+/* Generic check list (used in health card and inside groups) */
+
+.cb-check-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0 12px;
+}
+
+.cb-check-list--flush {
+    padding: 0;
+}
+
+.cb-check-list__item {
+    display: grid;
+    grid-template-columns: 20px 1fr max-content;
+    align-items: baseline;
+    column-gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: #1f2933;
+}
+
+.cb-check-list__item + .cb-check-list__item {
+    border-top: 1px solid #f1f4f8;
+}
+
+.cb-check-list__label {
+    color: #1f2933;
+}
+
+.cb-check-list__item--failure .cb-check-list__label {
+    color: #9b1c1c;
+    font-weight: 600;
+}
+
+.cb-check-list__item--skipped .cb-check-list__label {
+    color: #6b7280;
+}
+
+.cb-check-list__detail {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.cb-check-list__item--failure .cb-check-list__detail {
+    color: #9b1c1c;
+}
+
+.cb-check-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.cb-check-icon--ok {
+    background: #def7ec;
+    color: #1f7a4d;
+}
+
+.cb-check-icon--failure {
+    background: #fde2e2;
+    color: #9b1c1c;
+}
+
+.cb-check-icon--skipped {
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+/* Backup health card — Checks subsection (checkbox-hack toggle) */
+
+.cb-health-checks__input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cb-status-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.cb-health-checks__toggle {
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: #cbd1d8;
+    text-underline-offset: 2px;
+}
+
+.cb-health-checks__toggle:hover {
+    color: #1f2933;
+    text-decoration-color: currentColor;
+}
+
+.cb-health-checks__input:focus-visible + .cb-rows .cb-health-checks__toggle {
+    outline: 2px solid #4b6bff;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.cb-health-checks__toggle-hide {
+    display: none;
+}
+
+.cb-card:has(.cb-health-checks__input:checked) .cb-health-checks__toggle-show {
+    display: none;
+}
+
+.cb-card:has(.cb-health-checks__input:checked) .cb-health-checks__toggle-hide {
+    display: inline;
+}
+
+.cb-health-checks {
+    display: none;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #eef1f5;
+}
+
+.cb-card:has(.cb-health-checks__input:checked) .cb-health-checks {
+    display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cb-check-group__chevron {
+        transition: none;
+    }
 }
 
 .cb-tabs-header {
