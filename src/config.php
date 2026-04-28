@@ -193,7 +193,15 @@ return [
          * months after that, one per month for the following 4 months, and
          * finally one per year for 2 years. Set any bucket to 0 to disable it.
          *
-         * TODO: Implement delete_oldest_when_larger_than_mb
+         *   delete_oldest_backups_when_using_more_megabytes_than
+         *                           Optional hard size cap, in megabytes,
+         *                           applied AFTER the GFS rules above. If the
+         *                           total size of the kept backups exceeds
+         *                           this value, the oldest are removed one by
+         *                           one until the total fits. The newest
+         *                           backup is always retained, even if it
+         *                           alone exceeds the cap. Set to null to
+         *                           disable the cap.
          */
         'retention' => [
             'keep_all_for_days' => 7,
@@ -201,6 +209,7 @@ return [
             'keep_weekly_for_weeks' => 8,
             'keep_monthly_for_months' => 4,
             'keep_yearly_for_years' => 2,
+            'delete_oldest_backups_when_using_more_megabytes_than' => 5000,
         ],
 
         'logging' => [

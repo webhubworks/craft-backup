@@ -12,6 +12,11 @@ use webhubworks\backup\services\targets\TargetInterface;
  * which to delete. Nothing inside "keep_all_for_days" is ever pruned. Older
  * backups are bucketed by day/week/month/year and the newest per bucket is kept
  * up to the configured count.
+ *
+ * After GFS pruning, an optional size cap
+ * ("delete_oldest_backups_when_using_more_megabytes_than") drops the oldest
+ * surviving backups until the total kept size is under the cap. The newest
+ * backup is always retained, even if it alone exceeds the cap.
  */
 class RetentionPolicy
 {
@@ -66,6 +71,8 @@ class RetentionPolicy
             }
         }
 
+        $this->enforceSizeCap($backups, $keep, $retention['delete_oldest_backups_when_using_more_megabytes_than'] ?? null);
+
         $deleted = 0;
         foreach ($backups as $backup) {
             if (!isset($keep[$backup['path']])) {
@@ -79,12 +86,52 @@ class RetentionPolicy
         return $deleted;
     }
 
+    /**
+     * @param array<int, array{path: string, date: DateTimeImmutable, size: int}> $backups
+     * @param array<string, true> $keep
+     */
+    private function enforceSizeCap(array $backups, array &$keep, int|float|null $maxMegabytes): void
+    {
+        if ($maxMegabytes === null || $maxMegabytes <= 0) {
+            return;
+        }
+
+        $maxBytes = (int) ($maxMegabytes * 1024 * 1024);
+
+        $keptSize = 0;
+        foreach ($backups as $backup) {
+            if (isset($keep[$backup['path']])) {
+                $keptSize += $backup['size'];
+            }
+        }
+
+        if ($keptSize <= $maxBytes) {
+            return;
+        }
+
+        // Drop oldest kept backups until under the cap, but always retain the newest one.
+        foreach (array_reverse($backups) as $backup) {
+            if ($keptSize <= $maxBytes || count($keep) <= 1) {
+                return;
+            }
+            if (!isset($keep[$backup['path']])) {
+                continue;
+            }
+            unset($keep[$backup['path']]);
+            $keptSize -= $backup['size'];
+        }
+    }
+
     private function sortByDateDesc(array $listing): array
     {
         $parsed = [];
         foreach ($listing as $entry) {
             $date = $this->parseDate($entry['path']) ?? (new DateTimeImmutable())->setTimestamp($entry['modified'] ?? 0);
-            $parsed[] = ['path' => $entry['path'], 'date' => $date];
+            $parsed[] = [
+                'path' => $entry['path'],
+                'date' => $date,
+                'size' => (int) ($entry['size'] ?? 0),
+            ];
         }
 
         usort($parsed, fn($a, $b) => $b['date'] <=> $a['date']);

@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.11 - 2026-04-28
+
+### Added
+- Optional `retention.delete_oldest_backups_when_using_more_megabytes_than`: hard size cap, in megabytes, applied after the GFS rules. If the total size of the kept backups exceeds the cap, the oldest are pruned one by one until the total fits. The newest backup is always retained, even if it alone exceeds the cap. Set to `null` to disable.
+
 ## 1.2.10 - 2026-04-28
 
 ### Changed
