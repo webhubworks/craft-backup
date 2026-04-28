@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.7 - 2026-04-28
+
+### Changed
+- Backups-by-target table now also shows a grey open-lock icon for `.zip` files that are not password protected. On local target tabs the legend explains both lock states; non-local tabs only show the "zip detection is available for local targets only" note, so a missing icon no longer reads as "encryption unknown".
+
 ## 1.2.6 - 2026-04-28
 
 ### Added

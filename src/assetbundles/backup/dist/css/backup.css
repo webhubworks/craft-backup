@@ -419,13 +419,29 @@
     vertical-align: middle;
 }
 
+.cb-lock--open {
+    color: #9ca3af;
+}
+
 .cb-legend {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     margin: 12px 0 0;
     font-size: 12px;
     color: #6b7280;
+}
+
+.cb-legend p {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.cb-legend__note {
+    margin-top: 4px !important;
+    font-style: italic;
 }
 
 .cb-error {

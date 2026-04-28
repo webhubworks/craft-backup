@@ -101,7 +101,7 @@ class BackupController extends Controller
     }
 
     /**
-     * @return array<string, array<int, array{name:string, size:int, modified:int, encrypted:?bool}>>
+     * @return array<string, array{driver:?string, backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>}>
      */
     private static function collectBackups(BackupConfig $config): array
     {
@@ -121,7 +121,10 @@ class BackupController extends Controller
 
             usort($rows, fn(array $a, array $b) => $b['modified'] <=> $a['modified']);
 
-            $byTarget[$targetName] = $rows;
+            $byTarget[$targetName] = [
+                'driver' => $config->targets[$targetName]['driver'] ?? null,
+                'backups' => $rows,
+            ];
         }
 
         return $byTarget;

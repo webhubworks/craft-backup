@@ -27,11 +27,12 @@
         </header>
 
         <div class="cb-tab-panes">
-            {% for targetName, backups in backupsByTarget %}
+            {% for targetName, target in backupsByTarget %}
                 {% set paneId = 'cb-target-' ~ loop.index %}
+                {% set isLocal = target.driver == 'local' %}
                 <div id="{{ paneId }}" class="cb-tab-pane{% if not loop.first %} hidden{% endif %}">
                     <div class="cb-list">
-                        {% if backups|length %}
+                        {% if target.backups|length %}
                             <table>
                                 <thead>
                                     <tr>
@@ -41,14 +42,20 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for backup in backups %}
+                                    {% for backup in target.backups %}
                                         <tr>
                                             <td class="cb-mono">
                                                 {{ backup.name }}
-                                                {% if backup.encrypted %}
+                                                {% if backup.encrypted is same as(true) %}
                                                     <span class="cb-lock" title="{{ 'Password protected'|t('backup') }}" aria-label="{{ 'Password protected'|t('backup') }}">
                                                         <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
                                                             <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm-2 6V4.5a2 2 0 1 1 4 0V7H6Z"/>
+                                                        </svg>
+                                                    </span>
+                                                {% elseif backup.encrypted is same as(false) %}
+                                                    <span class="cb-lock cb-lock--open" title="{{ 'Not password protected'|t('backup') }}" aria-label="{{ 'Not password protected'|t('backup') }}">
+                                                        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                                                            <path fill="currentColor" d="M11.5 7V4.5a3.5 3.5 0 0 0-6.93-.66 .75.75 0 0 0 1.47.28 2 2 0 0 1 3.96.38V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5Z"/>
                                                         </svg>
                                                     </span>
                                                 {% endif %}
@@ -63,17 +70,30 @@
                             <div class="cb-list__empty">{{ 'No backups found on this target.'|t('backup') }}</div>
                         {% endif %}
                     </div>
+
+                    <div class="cb-legend">
+                        {% if isLocal %}
+                            <p>
+                                <span class="cb-lock" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                                        <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm-2 6V4.5a2 2 0 1 1 4 0V7H6Z"/>
+                                    </svg>
+                                </span>
+                                {{ 'File is password protected.'|t('backup') }}
+                            </p>
+                            <p>
+                                <span class="cb-lock cb-lock--open" aria-hidden="true">
+                                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+                                        <path fill="currentColor" d="M11.5 7V4.5a3.5 3.5 0 0 0-6.93-.66 .75.75 0 0 0 1.47.28 2 2 0 0 1 3.96.38V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5Z"/>
+                                    </svg>
+                                </span>
+                                {{ 'File is not password protected.'|t('backup') }}
+                            </p>
+                        {% endif %}
+                        <p class="cb-legend__note">{{ 'Zip detection is available for local targets only.'|t('backup') }}</p>
+                    </div>
                 </div>
             {% endfor %}
         </div>
-
-        <p class="cb-legend">
-            <span class="cb-lock" aria-hidden="true">
-                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-.5V4.5A3.5 3.5 0 0 0 8 1Zm-2 6V4.5a2 2 0 1 1 4 0V7H6Z"/>
-                </svg>
-            </span>
-            {{ 'File is password protected (zip detection available for local targets only).'|t('backup') }}
-        </p>
     {% endif %}
 </div>
