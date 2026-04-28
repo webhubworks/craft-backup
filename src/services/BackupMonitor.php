@@ -2,6 +2,7 @@
 
 namespace webhubworks\backup\services;
 
+use Craft;
 use InvalidArgumentException;
 use Throwable;
 use webhubworks\backup\exceptions\BackupFailedException;
@@ -81,18 +82,27 @@ class BackupMonitor extends Component
 
         $hasMin = array_key_exists('min_number_of_backups', $rule);
         $hasAge = array_key_exists('youngest_backup_should_be_within_the_last', $rule);
-        $minLabel = $hasMin ? 'Minimum number of backups' : null;
-        $ageLabel = $hasAge ? sprintf('Youngest backup within %s', (string) $rule['youngest_backup_should_be_within_the_last']) : null;
+        $minLabel = $hasMin ? Craft::t('backup', 'Minimum number of backups') : null;
+        $ageLabel = $hasAge
+            ? Craft::t('backup', 'Youngest backup within {duration}', ['duration' => (string) $rule['youngest_backup_should_be_within_the_last']])
+            : null;
 
         $items = [];
+        $reachableLabel = Craft::t('backup', 'Target is reachable');
 
         if (!array_key_exists($targetName, $config->targets)) {
-            $items[] = $this->item('target_reachable', 'Target is reachable', 'failure', "Target '{$targetName}' is not defined in the 'targets' config.");
+            $items[] = $this->item(
+                'target_reachable',
+                $reachableLabel,
+                'failure',
+                Craft::t('backup', "Target '{name}' is not defined in the 'targets' config.", ['name' => $targetName]),
+            );
+            $skippedNotDefined = Craft::t('backup', 'Skipped — target not defined.');
             if ($hasMin) {
-                $items[] = $this->item('min_backups', $minLabel, 'skipped', 'Skipped — target not defined.');
+                $items[] = $this->item('min_backups', $minLabel, 'skipped', $skippedNotDefined);
             }
             if ($hasAge) {
-                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', 'Skipped — target not defined.');
+                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', $skippedNotDefined);
             }
             return $this->groupResult($targetName, $items);
         }
@@ -101,50 +111,66 @@ class BackupMonitor extends Component
         try {
             $target = $this->buildTarget($config->targets[$targetName]);
             $files = $target->list();
-            $items[] = $this->item('target_reachable', 'Target is reachable', 'ok');
+            $items[] = $this->item('target_reachable', $reachableLabel, 'ok');
         } catch (Throwable $e) {
-            $items[] = $this->item('target_reachable', 'Target is reachable', 'failure', "Could not list backups: " . $e->getMessage());
+            $items[] = $this->item(
+                'target_reachable',
+                $reachableLabel,
+                'failure',
+                Craft::t('backup', 'Could not list backups: {error}', ['error' => $e->getMessage()]),
+            );
+            $skippedUnreachable = Craft::t('backup', 'Skipped — target unreachable.');
             if ($hasMin) {
-                $items[] = $this->item('min_backups', $minLabel, 'skipped', 'Skipped — target unreachable.');
+                $items[] = $this->item('min_backups', $minLabel, 'skipped', $skippedUnreachable);
             }
             if ($hasAge) {
-                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', 'Skipped — target unreachable.');
+                $items[] = $this->item('youngest_age', $ageLabel, 'skipped', $skippedUnreachable);
             }
             return $this->groupResult($targetName, $items);
         }
 
-        // 3. Minimum number of backups
+        // 2. Minimum number of backups
         if ($hasMin) {
             $min = $rule['min_number_of_backups'];
             if (!is_int($min) || $min < 0) {
-                $items[] = $this->item('min_backups', 'Minimum number of backups', 'failure', "'min_number_of_backups' must be a non-negative integer.");
+                $items[] = $this->item(
+                    'min_backups',
+                    $minLabel,
+                    'failure',
+                    "'min_number_of_backups' must be a non-negative integer.",
+                );
             } else {
                 $count = count($files);
                 $ok = $count >= $min;
                 $items[] = $this->item(
                     'min_backups',
-                    sprintf('At least %d backup(s) present', $min),
+                    Craft::t('backup', 'At least {n} backup(s) present', ['n' => $min]),
                     $ok ? 'ok' : 'failure',
                     $ok
-                        ? sprintf('Found %d', $count)
-                        : sprintf('Found only %d, expected at least %d.', $count, $min),
+                        ? Craft::t('backup', 'Found {count}', ['count' => $count])
+                        : Craft::t('backup', 'Found only {count}, expected at least {min}.', ['count' => $count, 'min' => $min]),
                 );
             }
         }
 
-        // 4. Youngest backup within max age
+        // 3. Youngest backup within max age
         if ($hasAge) {
             $rawAge = (string) $rule['youngest_backup_should_be_within_the_last'];
             $maxAgeSeconds = null;
             try {
                 $maxAgeSeconds = $this->parseDuration($rawAge);
             } catch (InvalidArgumentException $e) {
-                $items[] = $this->item('youngest_age', "Youngest backup within {$rawAge}", 'failure', $e->getMessage());
+                $items[] = $this->item('youngest_age', $ageLabel, 'failure', $e->getMessage());
             }
 
             if ($maxAgeSeconds !== null) {
                 if ($files === []) {
-                    $items[] = $this->item('youngest_age', "Youngest backup within {$rawAge}", 'failure', 'No backups found on target.');
+                    $items[] = $this->item(
+                        'youngest_age',
+                        $ageLabel,
+                        'failure',
+                        Craft::t('backup', 'No backups found on target.'),
+                    );
                 } else {
                     $youngest = max(array_column($files, 'modified'));
                     $ageSeconds = time() - (int) $youngest;
@@ -152,11 +178,11 @@ class BackupMonitor extends Component
                     $formatted = $this->formatDuration(max(0, $ageSeconds));
                     $items[] = $this->item(
                         'youngest_age',
-                        "Youngest backup within {$rawAge}",
+                        $ageLabel,
                         $ok ? 'ok' : 'failure',
                         $ok
-                            ? "Last backup {$formatted} ago"
-                            : "Last backup {$formatted} ago; max allowed is {$rawAge}.",
+                            ? Craft::t('backup', 'Last backup {age} ago', ['age' => $formatted])
+                            : Craft::t('backup', 'Last backup {age} ago; max allowed is {duration}.', ['age' => $formatted, 'duration' => $rawAge]),
                     );
                 }
             }
