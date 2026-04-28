@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 1.2.10 - 2026-04-28
+
+### Changed
+- Moved the per-target disk usage row to the bottom of the "Backups by target" card, separated from the file table and lock legend by a hairline divider so it reads as card metadata rather than a header.
+
 ## 1.2.9 - 2026-04-28
 
 ### Added
