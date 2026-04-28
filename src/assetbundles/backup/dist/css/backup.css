@@ -531,8 +531,11 @@
 
 .cb-legend {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 4px;
     margin: 12px 0 0;
     font-size: 12px;
     color: #6b7280;
@@ -546,7 +549,6 @@
 }
 
 .cb-legend__note {
-    margin-top: 4px !important;
     font-style: italic;
 }
 
