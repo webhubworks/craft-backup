@@ -364,7 +364,8 @@
 }
 
 .cb-list {
-    max-height: 600px;
+    /* Header (~37px) + 6.5 rows (~37px each) — the half-row hints at scrollability. */
+    max-height: 280px;
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
