@@ -55,6 +55,32 @@ class BackupController extends Controller
         });
     }
 
+    public function actionNotificationsCard(): Response
+    {
+        return $this->renderCard('backup/_card_notifications', function(BackupConfig $config) {
+            return [
+                'channels' => self::collectNotificationChannels($config),
+            ];
+        });
+    }
+
+    public function actionTestSlack(): Response
+    {
+        $this->requirePermission('accessCp');
+        $this->requirePostRequest();
+        $this->requireAcceptsJson();
+
+        try {
+            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+        } catch (Throwable $e) {
+            return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
+        }
+
+        $error = Plugin::getInstance()->runner->sendTestSlack($config);
+
+        return $this->asJson($error === null ? ['success' => true] : ['success' => false, 'error' => $error]);
+    }
+
     /**
      * Renders the initial page shell. Loading the config file is cheap, so we
      * do it eagerly to decide which cards to render skeletons for; everything
@@ -96,9 +122,69 @@ class BackupController extends Controller
 
         $variables = $collect($config);
 
-        $html = Craft::$app->getView()->renderTemplate($template, $variables, View::TEMPLATE_MODE_CP);
+        $html = trim(Craft::$app->getView()->renderTemplate($template, $variables, View::TEMPLATE_MODE_CP));
 
         return $this->asJson(['html' => $html]);
+    }
+
+    /**
+     * @return list<array{
+     *     id:string,
+     *     name:string,
+     *     detail:?string,
+     *     events:list<array{event:string, label:string, recipients?:list<string>, enabled?:bool}>,
+     *     hasTestAction:bool,
+     * }>
+     */
+    private static function collectNotificationChannels(BackupConfig $config): array
+    {
+        $eventKeys = ['on_failure', 'on_success', 'on_low_disk_space'];
+        $eventLabels = [
+            'on_failure' => Craft::t('backup', 'On failure'),
+            'on_success' => Craft::t('backup', 'On success'),
+            'on_low_disk_space' => Craft::t('backup', 'On low disk space'),
+        ];
+
+        $channels = [];
+
+        $mail = (array) ($config->notifications['mail'] ?? []);
+        $mailEvents = [];
+        $mailHasAny = false;
+        foreach ($eventKeys as $key) {
+            $recipients = array_values(array_filter(array_map('strval', (array) ($mail[$key] ?? []))));
+            $mailEvents[] = ['event' => $key, 'label' => $eventLabels[$key], 'recipients' => $recipients];
+            if ($recipients !== []) {
+                $mailHasAny = true;
+            }
+        }
+        if ($mailHasAny) {
+            $channels[] = [
+                'id' => 'mail',
+                'name' => Craft::t('backup', 'Mail'),
+                'detail' => null,
+                'events' => $mailEvents,
+                'hasTestAction' => false,
+            ];
+        }
+
+        $slack = (array) ($config->notifications['slack'] ?? []);
+        $webhookUrl = $slack['webhook_url'] ?? null;
+        if (is_string($webhookUrl) && $webhookUrl !== '') {
+            $slackEvents = [];
+            foreach ($eventKeys as $key) {
+                $slackEvents[] = ['event' => $key, 'label' => $eventLabels[$key], 'enabled' => (bool) ($slack[$key] ?? false)];
+            }
+            $detail = !empty($slack['channel']) ? (string) $slack['channel'] : null;
+            $channels[] = [
+                'id' => 'slack',
+                'name' => Craft::t('backup', 'Slack'),
+                'detail' => $detail,
+                'events' => $slackEvents,
+                'hasTestAction' => true,
+            ];
+        }
+
+        return $channels;
     }
 
     /**

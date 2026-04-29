@@ -252,7 +252,7 @@ return [
                 // Incoming Webhook URL. Override via BACKUP_SLACK_WEBHOOK_URL in .env.
                 'webhook_url' => App::env('BACKUP_SLACK_WEBHOOK_URL') ?: null,
                 // Optional channel override (e.g. '#ops'). Null uses the webhook's default channel.
-                'channel' => null,
+                'channel' => App::env('BACKUP_SLACK_CHANNEL') ?: null,
                 // Display name. Null uses the webhook's default name.
                 'username' => 'Craft Backup',
                 // Emoji shortcode (':floppy_disk:') or full image URL. Null uses the webhook's default icon.

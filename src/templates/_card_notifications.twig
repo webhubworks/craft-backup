@@ -1,0 +1,53 @@
+{# Render nothing when no channels are configured — the deferred loader removes the empty placeholder. #}
+{% if channels|length == 0 %}
+{% else %}
+    <details class="cb-card cb-card--collapsible">
+        <summary class="cb-card__summary">
+            <h2>{{ 'Notifications'|t('backup') }}</h2>
+            <span class="cb-card__chevron" aria-hidden="true"></span>
+        </summary>
+
+        {% for channel in channels %}
+            <div class="cb-channel">
+                <div class="cb-channel__header">
+                    <span class="cb-channel__name">{{ channel.name }}</span>
+                    {% if channel.detail %}
+                        <span class="cb-channel__detail">{{ channel.detail }}</span>
+                    {% endif %}
+                    {% if channel.hasTestAction and channel.id == 'slack' %}
+                        <a href="#"
+                           class="cb-channel__test"
+                           data-cb-test-slack
+                           data-cb-action-url="{{ actionUrl('backup/backup/test-slack') }}"
+                           data-cb-label-default="{{ 'Send test notification'|t('backup') }}"
+                           data-cb-label-sending="{{ 'Sending…'|t('backup') }}"
+                           data-cb-label-sent="{{ 'Test sent ✓'|t('backup') }}"
+                           data-cb-label-failed="{{ 'Test failed — see browser console'|t('backup') }}">
+                            {{ 'Send test notification'|t('backup') }}
+                        </a>
+                    {% endif %}
+                </div>
+                <dl class="cb-rows cb-channel__events">
+                    {% for ev in channel.events %}
+                        <dt>{{ ev.label }}</dt>
+                        <dd>
+                            {% if channel.id == 'mail' %}
+                                {% if ev.recipients|length %}
+                                    {{ ev.recipients|join(', ') }}
+                                {% else %}
+                                    <span class="cb-muted">{{ 'Disabled'|t('backup') }}</span>
+                                {% endif %}
+                            {% else %}
+                                {% if ev.enabled %}
+                                    <span class="cb-badge cb-badge--ok">{{ 'Enabled'|t('backup') }}</span>
+                                {% else %}
+                                    <span class="cb-muted">{{ 'Disabled'|t('backup') }}</span>
+                                {% endif %}
+                            {% endif %}
+                        </dd>
+                    {% endfor %}
+                </dl>
+            </div>
+        {% endfor %}
+    </details>
+{% endif %}

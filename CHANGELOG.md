@@ -1,5 +1,11 @@
 # Release Notes for Craft Backup
 
+## 2.0.1 - 2026-04-29
+
+### Added
+- "Notifications" card on the Backup utility, collapsed by default. Lists each configured channel (mail, Slack) with the events it fires on — recipients per event for mail, enabled/disabled per event for Slack — plus the Slack channel override when set. The card hides itself entirely when no notification channels are configured.
+- "Send test notification" link in the Slack row that posts a test message to the configured webhook, ignoring per-event flags. Used to confirm setup or debug silence.
+
 ## 2.0.0 - 2026-04-29
 
 > ⚠️ **Breaking change.** Notification config has moved out of `logging` into a new top-level `notifications` block. Update your `config/backup.php`:

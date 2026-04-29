@@ -377,17 +377,42 @@ class BackupRunner extends Component
         }
     }
 
-    private function sendSlack(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
+    /**
+     * Send a one-off test message to the configured Slack webhook, ignoring per-event flags.
+     * Returns null on success, or an error message string on failure / when Slack isn't configured.
+     */
+    public function sendTestSlack(BackupConfig $config): ?string
     {
         $slack = (array) ($config->notifications['slack'] ?? []);
         $webhookUrl = $slack['webhook_url'] ?? null;
         if (!is_string($webhookUrl) || $webhookUrl === '') {
-            return;
-        }
-        if (!($slack[$event] ?? false)) {
-            return;
+            return 'Slack webhook URL is not configured.';
         }
 
+        $siteName = Craft::$app->getSystemName() ?: $config->name;
+        $payload = $this->buildSlackPayload(
+            $slack,
+            "[Craft Backup] Test notification from {$siteName}",
+            "If you can read this, Slack notifications are wired up correctly.",
+        );
+
+        try {
+            Craft::createGuzzleClient()->post($webhookUrl, [
+                'json' => $payload,
+                'timeout' => 10,
+            ]);
+            return null;
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $slack
+     * @return array<string, mixed>
+     */
+    private function buildSlackPayload(array $slack, string $subject, string $body): array
+    {
         $payload = ['text' => "*{$subject}*\n```\n{$body}\n```"];
         if (!empty($slack['channel'])) {
             $payload['channel'] = $slack['channel'];
@@ -399,6 +424,21 @@ class BackupRunner extends Component
             $icon = $slack['icon'];
             $payload[str_starts_with($icon, ':') ? 'icon_emoji' : 'icon_url'] = $icon;
         }
+        return $payload;
+    }
+
+    private function sendSlack(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
+    {
+        $slack = (array) ($config->notifications['slack'] ?? []);
+        $webhookUrl = $slack['webhook_url'] ?? null;
+        if (!is_string($webhookUrl) || $webhookUrl === '') {
+            return;
+        }
+        if (!($slack[$event] ?? false)) {
+            return;
+        }
+
+        $payload = $this->buildSlackPayload($slack, $subject, $body);
 
         try {
             Craft::createGuzzleClient()->post($webhookUrl, [
