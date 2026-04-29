@@ -291,15 +291,9 @@ class BackupRunner extends Component
     private function notify(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
     {
         $successful = $result->isSuccessful();
-        $key = $successful ? 'notify_on_success' : 'notify_on_failure';
-        $recipients = array_filter((array) ($config->logging[$key] ?? []));
-        if ($recipients === []) {
-            return;
-        }
-
+        $event = $successful ? 'on_success' : 'on_failure';
         $siteName = Craft::$app->getSystemName() ?: $config->name;
         $status = $successful ? 'Success' : 'Failure';
-        $subject = "[Craft Backup] {$status} on {$siteName}";
 
         $lines = [
             $successful ? 'Backup run completed successfully.' : 'A backup run did not complete successfully.',
@@ -325,28 +319,14 @@ class BackupRunner extends Component
             }
         }
 
-        try {
-            Craft::$app->getMailer()
-                ->compose()
-                ->setTo($recipients)
-                ->setSubject($subject)
-                ->setTextBody(implode(PHP_EOL, $lines))
-                ->send();
-
-            $logger->info(strtolower($status) . ' notification sent', ['to' => $recipients]);
-        } catch (Throwable $e) {
-            $logger->warning('Failed to send notification', ['error' => $e->getMessage()]);
-        }
+        $body = implode(PHP_EOL, $lines);
+        $this->sendMail($config, $event, "[Craft Backup] {$status} on {$siteName}", $body, $logger);
+        $this->sendSlack($config, $event, "[Craft Backup] {$status} on {$siteName}", $body, $logger);
     }
 
     private function notifyLowDisk(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
     {
         if ($result->lowDiskTargets === []) {
-            return;
-        }
-
-        $recipients = array_filter((array) ($config->logging['notify_on_low_disk_space'] ?? []));
-        if ($recipients === []) {
             return;
         }
 
@@ -371,17 +351,64 @@ class BackupRunner extends Component
             );
         }
 
+        $body = implode(PHP_EOL, $lines);
+        $this->sendMail($config, 'on_low_disk_space', $subject, $body, $logger);
+        $this->sendSlack($config, 'on_low_disk_space', $subject, $body, $logger);
+    }
+
+    private function sendMail(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
+    {
+        $recipients = array_filter((array) ($config->notifications['mail'][$event] ?? []));
+        if ($recipients === []) {
+            return;
+        }
+
         try {
             Craft::$app->getMailer()
                 ->compose()
                 ->setTo($recipients)
                 ->setSubject($subject)
-                ->setTextBody(implode(PHP_EOL, $lines))
+                ->setTextBody($body)
                 ->send();
 
-            $logger->info('low-disk notification sent', ['to' => $recipients, 'targets' => array_keys($result->lowDiskTargets)]);
+            $logger->info("mail notification sent ({$event})", ['to' => $recipients]);
         } catch (Throwable $e) {
-            $logger->warning('Failed to send low-disk notification', ['error' => $e->getMessage()]);
+            $logger->warning("Failed to send mail notification ({$event})", ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function sendSlack(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
+    {
+        $slack = (array) ($config->notifications['slack'] ?? []);
+        $webhookUrl = $slack['webhook_url'] ?? null;
+        if (!is_string($webhookUrl) || $webhookUrl === '') {
+            return;
+        }
+        if (!($slack[$event] ?? false)) {
+            return;
+        }
+
+        $payload = ['text' => "*{$subject}*\n```\n{$body}\n```"];
+        if (!empty($slack['channel'])) {
+            $payload['channel'] = $slack['channel'];
+        }
+        if (!empty($slack['username'])) {
+            $payload['username'] = $slack['username'];
+        }
+        if (!empty($slack['icon'])) {
+            $icon = $slack['icon'];
+            $payload[str_starts_with($icon, ':') ? 'icon_emoji' : 'icon_url'] = $icon;
+        }
+
+        try {
+            Craft::createGuzzleClient()->post($webhookUrl, [
+                'json' => $payload,
+                'timeout' => 10,
+            ]);
+
+            $logger->info("slack notification sent ({$event})");
+        } catch (Throwable $e) {
+            $logger->warning("Failed to send slack notification ({$event})", ['error' => $e->getMessage()]);
         }
     }
 

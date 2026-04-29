@@ -151,8 +151,9 @@ This plugin deliberately mirrors the CLI surface and config shape of [spatie/lar
 | ✅                                              | Encryption support                      |
 | ✅                                              | GFS retention                           |
 | ✅                                              | Mail notifications                      |
+| ✅                                              | Slack notifications                     |
 | ✅ (via `backup/monitor` + Oh Dear integration) | Monitor the health of your backups      |
-| _Coming soon_                                   | Slack & Discord notifications, Webhooks |
+| _Coming soon_                                   | Discord notifications, Webhooks         |
 
 ## What is GFS retention? And why should I care?
 

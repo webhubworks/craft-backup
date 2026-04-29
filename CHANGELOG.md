@@ -1,5 +1,19 @@
 # Release Notes for Craft Backup
 
+## 3.0.0 - 2026-04-29
+
+> ⚠️ **Breaking change.** Notification config has moved out of `logging` into a new top-level `notifications` block. Update your `config/backup.php`:
+>
+> - `logging.notify_on_failure` → `notifications.mail.on_failure`
+> - `logging.notify_on_success` → `notifications.mail.on_success`
+> - `logging.notify_on_low_disk_space` → `notifications.mail.on_low_disk_space`
+
+### Added
+- Slack notifications via Incoming Webhooks. Configure under `notifications.slack` with `webhook_url` (also overridable via `BACKUP_SLACK_WEBHOOK_URL`), optional `channel`/`username`/`icon`, and per-event `on_failure`/`on_success`/`on_low_disk_space` toggles. Slack receives the same content as the corresponding mail notification.
+
+### Changed
+- Notification config moved from `logging.notify_on_*` to `notifications.mail.on_*` (see breaking-change note above).
+
 ## 1.2.12 - 2026-04-28
 
 ### Added

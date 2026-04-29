@@ -16,6 +16,7 @@ use craft\helpers\App;
  *   BACKUP_ARCHIVE_PASSWORD    — overrides 'compression.password'
  *   BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
  *   BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
+ *   BACKUP_SLACK_WEBHOOK_URL   — overrides 'notifications.slack.webhook_url'
  *
  * SFTP target credentials (only used when the commented 'offsite' block is active):
  *
@@ -215,24 +216,52 @@ return [
         'logging' => [
             'channel' => 'craft-backup',
             'level' => 'info',
+        ],
+
+        /**
+         * Notifications.
+         *
+         * Three events are reported:
+         *   on_failure         A run failed or finished with at least one failed target.
+         *   on_success         A run completed successfully (useful for confirming scheduled backups run).
+         *   on_low_disk_space  After a run, a target's free disk space dropped below its
+         *                      'warn_when_disk_space_is_lower_than' threshold (see monitor_backups
+         *                      below). Only fires for targets whose driver can report disk usage
+         *                      (currently 'local').
+         *
+         * Each channel decides per-event whether to fire.
+         */
+        'notifications' => [
             /**
-             * Email addresses to notify when a run fails or finishes with at least one failed target.
-             * Example: ['ops@example.com', 'devops@example.com']. Empty array disables notifications.
+             * Mail. Each event holds a list of recipient addresses; an empty array
+             * disables that event. Examples:
+             *   'on_failure' => ['ops@example.com', 'devops@example.com'],
              */
-            'notify_on_failure' => [],
+            'mail' => [
+                'on_failure' => [],
+                'on_success' => [],
+                'on_low_disk_space' => [],
+            ],
+
             /**
-             * Email addresses to notify when a run completes successfully.
-             * Useful for confirming scheduled backups are actually running. Empty array disables notifications.
+             * Slack. Posts to an Incoming Webhook (https://api.slack.com/messaging/webhooks).
+             * Set 'webhook_url' to null (or leave BACKUP_SLACK_WEBHOOK_URL unset) to disable
+             * Slack entirely; per-event flags then have no effect.
              */
-            'notify_on_success' => [],
-            /**
-             * Email addresses to notify when, after a backup run, the free disk
-             * space on a target drops below its configured
-             * 'warn_when_disk_space_is_lower_than' threshold (see monitor_backups
-             * below). Only fires for targets whose driver can report disk usage
-             * (currently 'local'). Empty array disables notifications.
-             */
-            'notify_on_low_disk_space' => [],
+            'slack' => [
+                // Incoming Webhook URL. Override via BACKUP_SLACK_WEBHOOK_URL in .env.
+                'webhook_url' => App::env('BACKUP_SLACK_WEBHOOK_URL') ?: null,
+                // Optional channel override (e.g. '#ops'). Null uses the webhook's default channel.
+                'channel' => null,
+                // Display name. Null uses the webhook's default name.
+                'username' => 'Craft Backup',
+                // Emoji shortcode (':floppy_disk:') or full image URL. Null uses the webhook's default icon.
+                'icon' => ':floppy_disk:',
+                // Per-event toggles.
+                'on_failure' => true,
+                'on_success' => false,
+                'on_low_disk_space' => true,
+            ],
         ],
 
         /**
@@ -253,8 +282,8 @@ return [
          *                                             When set, the "Backups by target" card draws a
          *                                             warn marker on the disk usage bar; falling
          *                                             below the threshold turns the bar red and
-         *                                             triggers an email to
-         *                                             logging.notify_on_low_disk_space after the
+         *                                             triggers a notification on
+         *                                             notifications.*.on_low_disk_space after the
          *                                             next backup run. Default: null. Only honored
          *                                             for targets whose driver can report disk usage
          *                                             (currently 'local').

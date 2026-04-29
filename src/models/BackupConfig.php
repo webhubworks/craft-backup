@@ -26,6 +26,7 @@ final class BackupConfig
         public readonly array $targets,
         public readonly array $retention,
         public readonly array $logging,
+        public readonly array $notifications,
         public readonly array $monitorBackups,
         public readonly ?string $dateTimeFormat,
     ) {
@@ -55,6 +56,7 @@ final class BackupConfig
             targets: (array) ($raw['targets'] ?? []),
             retention: (array) ($raw['retention'] ?? []),
             logging: (array) ($raw['logging'] ?? []),
+            notifications: (array) ($raw['notifications'] ?? []),
             monitorBackups: (array) ($raw['monitor_backups'] ?? []),
             dateTimeFormat: isset($raw['date_time_format']) && $raw['date_time_format'] !== '' ? (string) $raw['date_time_format'] : null,
         );
