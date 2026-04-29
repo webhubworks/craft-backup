@@ -18,6 +18,7 @@ use webhubworks\backup\controllers\BackupController;
 use webhubworks\backup\services\BackupMonitor;
 use webhubworks\backup\services\BackupRunner;
 use webhubworks\backup\services\RunStateStore;
+use webhubworks\backup\twigextensions\BackupTwigExtension;
 use webhubworks\backup\utilities\BackupUtility;
 use yii\base\Event;
 
@@ -51,6 +52,7 @@ class Plugin extends BasePlugin
             $this->registerTranslations();
             $this->renameDbBackupUtility();
             $this->extendDbBackupUtility();
+            Craft::$app->getView()->registerTwigExtension(new BackupTwigExtension());
         }
     }
 

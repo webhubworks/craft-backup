@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.0.2 - 2026-04-29
+
+### Changed
+- Timestamps in the "Backup health" and "Backups by target" cards now render as a localized relative time (e.g. "2 hours ago") via Carbon's `diffForHumans()`, with the previously-shown absolute date surfaced as an instant tooltip on hover.
+
 ## 2.0.1 - 2026-04-29
 
 ### Added

@@ -1,6 +1,6 @@
 {% macro relativeTime(timestamp, format) %}
     {%- if timestamp -%}
-        {{ timestamp|date(format ?: 'D, M j, Y g:i A') }}
+        <span class="cb-tooltip" data-cb-tooltip="{{ timestamp|date(format ?: 'D, M j, Y g:i A') }}">{{ diffForHumans(timestamp) }}</span>
     {%- else -%}
         {{ 'Never'|t('backup') }}
     {%- endif -%}

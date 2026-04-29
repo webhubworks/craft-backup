@@ -1,4 +1,4 @@
-{% from 'backup/_macros' import formatBytes %}
+{% from 'backup/_macros' import formatBytes, relativeTime %}
 
 <div class="cb-card">
     <h2>{{ 'Backups by target'|t('backup') }}</h2>
@@ -61,7 +61,7 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ formatBytes(backup.size) }}</td>
-                                            <td>{{ backup.modified|date(dateTimeFormat ?: 'D, M j, Y g:i A') }}</td>
+                                            <td>{{ relativeTime(backup.modified, dateTimeFormat) }}</td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
