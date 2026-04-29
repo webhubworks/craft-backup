@@ -1,6 +1,6 @@
 # Release Notes for Craft Backup
 
-## 3.0.0 - 2026-04-29
+## 2.0.0 - 2026-04-29
 
 > ⚠️ **Breaking change.** Notification config has moved out of `logging` into a new top-level `notifications` block. Update your `config/backup.php`:
 >
