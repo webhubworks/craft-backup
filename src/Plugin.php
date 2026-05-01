@@ -7,8 +7,10 @@ use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
+use craft\events\RegisterUserPermissionsEvent;
 use craft\events\TemplateEvent;
 use craft\i18n\PhpMessageSource;
+use craft\services\UserPermissions;
 use craft\services\Utilities;
 use craft\utilities\DbBackup;
 use craft\web\UrlManager;
@@ -52,6 +54,7 @@ class Plugin extends BasePlugin
             $this->registerTranslations();
             $this->renameDbBackupUtility();
             $this->extendDbBackupUtility();
+            $this->registerPermissions();
             Craft::$app->getView()->registerTwigExtension(new BackupTwigExtension());
         }
     }
@@ -92,6 +95,24 @@ class Plugin extends BasePlugin
                 if ($index !== false) {
                     $event->types[$index] = BackupUtility::class;
                 }
+            }
+        );
+    }
+
+    private function registerPermissions(): void
+    {
+        Event::on(
+            UserPermissions::class,
+            UserPermissions::EVENT_REGISTER_PERMISSIONS,
+            function(RegisterUserPermissionsEvent $event) {
+                $event->permissions[] = [
+                    'heading' => Craft::t('backup', 'Backups'),
+                    'permissions' => [
+                        'backup:download' => [
+                            'label' => Craft::t('backup', 'Download backups from the Backups utility'),
+                        ],
+                    ],
+                ];
             }
         );
     }

@@ -3,6 +3,7 @@
 namespace webhubworks\backup\models;
 
 use InvalidArgumentException;
+use webhubworks\backup\services\Bytes;
 
 /**
  * Immutable, validated snapshot of the plugin config at the start of a run.
@@ -29,6 +30,9 @@ final class BackupConfig
         public readonly array $notifications,
         public readonly array $monitorBackups,
         public readonly ?string $dateTimeFormat,
+        public readonly ?int $downloadMaxBytes,
+        public readonly ?string $xSendFileHeader,
+        public readonly ?string $xSendFileUriPrefix,
     ) {
     }
 
@@ -38,6 +42,23 @@ final class BackupConfig
         $compression = $raw['compression'] ?? [];
         $encryption = $raw['encryption'] ?? [];
         $throttle = $raw['throttle'] ?? [];
+        $download = $raw['download'] ?? [];
+
+        $xSendFileHeader = $download['x_send_file'] ?? null;
+        if ($xSendFileHeader !== null) {
+            $xSendFileHeader = (string) $xSendFileHeader;
+            if (!in_array($xSendFileHeader, ['X-Sendfile', 'X-Accel-Redirect'], true)) {
+                throw new InvalidArgumentException("download.x_send_file must be 'X-Sendfile', 'X-Accel-Redirect', or null.");
+            }
+        }
+
+        $xSendFileUriPrefix = $download['x_send_file_uri_prefix'] ?? null;
+        if ($xSendFileUriPrefix !== null) {
+            $xSendFileUriPrefix = (string) $xSendFileUriPrefix;
+            if ($xSendFileUriPrefix === '' || $xSendFileUriPrefix[0] !== '/') {
+                throw new InvalidArgumentException("download.x_send_file_uri_prefix must start with '/'.");
+            }
+        }
 
         $config = new self(
             name: (string) ($raw['name'] ?? 'craft-backup'),
@@ -59,6 +80,9 @@ final class BackupConfig
             notifications: (array) ($raw['notifications'] ?? []),
             monitorBackups: (array) ($raw['monitor_backups'] ?? []),
             dateTimeFormat: isset($raw['date_time_format']) && $raw['date_time_format'] !== '' ? (string) $raw['date_time_format'] : null,
+            downloadMaxBytes: Bytes::parse($download['max_bytes'] ?? '500MB'),
+            xSendFileHeader: $xSendFileHeader,
+            xSendFileUriPrefix: $xSendFileUriPrefix,
         );
 
         $config->validate();

@@ -30,6 +30,7 @@
             {% for targetName, target in backupsByTarget %}
                 {% set paneId = 'cb-target-' ~ loop.index %}
                 {% set isLocal = target.driver == 'local' %}
+                {% set showDownload = isLocal and canDownload %}
                 <div id="{{ paneId }}" class="cb-tab-pane{% if not loop.first %} hidden{% endif %}">
                     <div class="cb-list">
                         {% if target.backups|length %}
@@ -39,10 +40,12 @@
                                         <th>{{ 'File'|t('backup') }}</th>
                                         <th>{{ 'Size'|t('backup') }}</th>
                                         <th>{{ 'Created'|t('backup') }}</th>
+                                        {% if showDownload %}<th class="cb-col-action"></th>{% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for backup in target.backups %}
+                                        {% set tooLarge = showDownload and downloadMaxBytes is not null and backup.size > downloadMaxBytes %}
                                         <tr>
                                             <td class="cb-mono">
                                                 {{ backup.name }}
@@ -62,6 +65,29 @@
                                             </td>
                                             <td>{{ formatBytes(backup.size) }}</td>
                                             <td>{{ relativeTime(backup.modified, dateTimeFormat) }}</td>
+                                            {% if showDownload %}
+                                                <td class="cb-col-action">
+                                                    {% if tooLarge %}
+                                                        <span class="cb-download cb-download--disabled cb-tooltip"
+                                                              data-cb-tooltip="{{ 'Backup is {size}, exceeding the {limit} download limit. Fetch directly from the server: {path}'|t('backup', {
+                                                                  size: formatBytes(backup.size),
+                                                                  limit: formatBytes(downloadMaxBytes),
+                                                                  path: backup.path,
+                                                              }) }}"
+                                                              aria-disabled="true">
+                                                            {{ 'Too large'|t('backup') }}
+                                                        </span>
+                                                    {% else %}
+                                                        <form method="post" accept-charset="UTF-8" class="cb-download-form">
+                                                            {{ csrfInput() }}
+                                                            {{ actionInput('backup/backup/download') }}
+                                                            <input type="hidden" name="targetName" value="{{ targetName }}">
+                                                            <input type="hidden" name="backupName" value="{{ backup.name }}">
+                                                            <button type="submit" class="btn small cb-download" data-icon="download">{{ 'Download'|t('backup') }}</button>
+                                                        </form>
+                                                    {% endif %}
+                                                </td>
+                                            {% endif %}
                                         </tr>
                                     {% endfor %}
                                 </tbody>

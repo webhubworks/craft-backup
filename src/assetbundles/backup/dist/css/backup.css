@@ -529,6 +529,23 @@
     color: #9ca3af;
 }
 
+.cb-col-action {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.cb-download-form {
+    margin: 0;
+}
+
+.cb-download--disabled {
+    display: inline-block;
+    color: #9ca3af;
+    font-size: 12px;
+    cursor: help;
+}
+
 .cb-legend {
     display: flex;
     flex-direction: row;

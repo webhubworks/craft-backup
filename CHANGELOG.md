@@ -1,5 +1,11 @@
 # Release Notes for Craft Backup
 
+## 2.1.0 - 2026-05-01
+
+### Added
+- Per-row "Download" button on the "Backups by target" card for `local` targets. Clicking streams the backup file to the browser via a CSRF-protected POST. Gated by a new `backup:download` user permission (admins pass automatically); the button is hidden for users without the permission and for non-`local` targets.
+- New `download` config block with `max_bytes` (default `'500MB'`), `x_send_file`, and `x_send_file_uri_prefix`. Files larger than `max_bytes` render the download control disabled with a tooltip showing the absolute on-server path so admins can fetch via SCP/SFTP. Setting `x_send_file` to `'X-Sendfile'` (Apache) or `'X-Accel-Redirect'` (nginx) hands the response off to the web server, bypasses the size cap, and frees the PHP-FPM worker immediately.
+
 ## 2.0.2 - 2026-04-29
 
 ### Changed

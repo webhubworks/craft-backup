@@ -10,6 +10,7 @@ use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\Plugin;
 use webhubworks\backup\services\Bytes;
 use yii\web\BadRequestHttpException;
+use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 class BackupController extends Controller
@@ -51,8 +52,88 @@ class BackupController extends Controller
             return [
                 'backupsByTarget' => self::collectBackups($config),
                 'dateTimeFormat' => $config->dateTimeFormat,
+                'downloadMaxBytes' => $config->xSendFileHeader !== null ? null : $config->downloadMaxBytes,
+                'canDownload' => Craft::$app->getUser()->checkPermission('backup:download'),
             ];
         });
+    }
+
+    public function actionDownload(): Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('backup:download');
+
+        try {
+            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+        } catch (Throwable $e) {
+            throw new BadRequestHttpException($e->getMessage(), 0, $e);
+        }
+
+        $targetName = (string) $this->request->getRequiredBodyParam('targetName');
+        $name = (string) $this->request->getRequiredBodyParam('backupName');
+
+        $def = $config->targets[$targetName] ?? null;
+        if (!is_array($def) || ($def['driver'] ?? null) !== 'local') {
+            throw new BadRequestHttpException("Downloads are only supported for local targets.");
+        }
+
+        if (str_contains($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")
+            || $name === '' || $name[0] === '.'
+            || !preg_match('/\.(zip|tar\.gz|tar\.gz\.enc)$/', $name)
+        ) {
+            throw new BadRequestHttpException("Invalid backup filename: '{$name}'.");
+        }
+
+        $rootAlias = $def['root'] ?? '@storage/backups';
+        $root = Craft::getAlias($rootAlias);
+        if (!is_string($root)) {
+            throw new BadRequestHttpException("Invalid local target root.");
+        }
+
+        $rootReal = realpath($root);
+        $pathReal = realpath($root . DIRECTORY_SEPARATOR . $name);
+
+        if ($rootReal === false || $pathReal === false || !is_file($pathReal)) {
+            throw new NotFoundHttpException('Backup not found.');
+        }
+
+        // Defense in depth against symlink/.. escapes.
+        if (!str_starts_with($pathReal . DIRECTORY_SEPARATOR, rtrim($rootReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+            throw new NotFoundHttpException('Backup not found.');
+        }
+
+        $size = (int) filesize($pathReal);
+
+        if ($config->xSendFileHeader === null
+            && $config->downloadMaxBytes !== null
+            && $size > $config->downloadMaxBytes
+        ) {
+            throw new BadRequestHttpException('Backup exceeds the configured download size limit.');
+        }
+
+        $mimeType = str_ends_with($name, '.zip') ? 'application/zip' : 'application/octet-stream';
+
+        if ($config->xSendFileHeader !== null) {
+            $headerPath = $pathReal;
+            if ($config->xSendFileHeader === 'X-Accel-Redirect' && $config->xSendFileUriPrefix !== null) {
+                $headerPath = rtrim($config->xSendFileUriPrefix, '/') . '/' . $name;
+            }
+            return $this->response->xSendFile($headerPath, $name, [
+                'mimeType' => $mimeType,
+                'xHeader' => $config->xSendFileHeader,
+            ]);
+        }
+
+        // Streaming through PHP: drop any output buffers and lift the time
+        // limit so a slow client connection doesn't get cut off mid-download.
+        @set_time_limit(0);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        return $this->response->sendFile($pathReal, $name, [
+            'mimeType' => $mimeType,
+        ]);
     }
 
     public function actionNotificationsCard(): Response
@@ -190,7 +271,7 @@ class BackupController extends Controller
     /**
      * @return array<string, array{
      *     driver:?string,
-     *     backups:array<int, array{name:string, size:int, modified:int, encrypted:?bool}>,
+     *     backups:array<int, array{name:string, path:string, size:int, modified:int, encrypted:?bool}>,
      *     backupsBytes:int,
      *     diskUsage:array{total:int, free:int}|null,
      *     warnThreshold:array{bytes:int, percent:?float}|null,
@@ -209,6 +290,7 @@ class BackupController extends Controller
                 $bytes += $size;
                 $rows[] = [
                     'name' => basename($file['path']),
+                    'path' => (string) $file['path'],
                     'size' => $size,
                     'modified' => (int) $file['modified'],
                     'encrypted' => $file['encrypted'] ?? null,

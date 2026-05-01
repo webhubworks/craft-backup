@@ -314,6 +314,51 @@ return [
          *
          * Example: 'D, d.m.y, H:i:s' for 'Mo., 27.04.26, 12:47:29'.
          */
-         'date_time_format' => null,
+        'date_time_format' => null,
+
+        /**
+         * In-browser download of existing backups from the "Backups by target"
+         * card. Only applies to targets whose driver is 'local'.
+         *
+         *   max_bytes
+         *       Hard cap on file size eligible for in-browser download. Files
+         *       above this size render with a disabled download button and a
+         *       tooltip pointing the admin at the file's absolute path so they
+         *       can fetch it via SCP/SFTP instead. Accepts byte counts,
+         *       shorthand ('500MB', '2GB'), or null to disable the cap.
+         *
+         *       The default of 500 MB is chosen to comfortably finish within
+         *       the default nginx/Apache/PHP-FPM 60 s timeouts on a typical
+         *       admin connection (~5 MB/s and up). Raise it only if you've
+         *       tuned the timeout chain and aren't behind a proxy that caps
+         *       responses (Cloudflare's free tier is 100 MB).
+         *
+         *   x_send_file
+         *       When set, downloads are handed off to the web server instead
+         *       of streamed through PHP, freeing the PHP-FPM worker
+         *       immediately and removing the size cap entirely (the cap above
+         *       is ignored when this is set). Valid values:
+         *
+         *         'X-Sendfile'        Apache (mod_xsendfile) and Lighttpd ≥1.5
+         *         'X-Accel-Redirect'  nginx
+         *
+         *       For 'X-Accel-Redirect' you must also set the URI prefix below
+         *       and configure a matching `internal` location in nginx, e.g.:
+         *
+         *           location /internal-backups/ {
+         *               internal;
+         *               alias /absolute/path/to/storage/backups/;
+         *           }
+         *
+         *   x_send_file_uri_prefix
+         *       Internal URI prefix mapped to the local target's root
+         *       directory by the web server. Only used when x_send_file is
+         *       'X-Accel-Redirect'. Must start with '/'.
+         */
+        'download' => [
+            'max_bytes' => '500MB',
+            'x_send_file' => null,
+            'x_send_file_uri_prefix' => null,
+        ],
     ],
 ];
