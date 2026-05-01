@@ -163,6 +163,16 @@ class BackupMonitor extends Component
                 $items[] = $this->item('youngest_age', $ageLabel, 'failure', $e->getMessage());
             }
 
+            $graceSeconds = 15 * 60;
+            if (array_key_exists('youngest_backup_grace', $rule)) {
+                try {
+                    $graceSeconds = $this->parseDuration((string) $rule['youngest_backup_grace']);
+                } catch (InvalidArgumentException $e) {
+                    $items[] = $this->item('youngest_age', $ageLabel, 'failure', $e->getMessage());
+                    $maxAgeSeconds = null;
+                }
+            }
+
             if ($maxAgeSeconds !== null) {
                 if ($files === []) {
                     $items[] = $this->item(
@@ -174,7 +184,7 @@ class BackupMonitor extends Component
                 } else {
                     $youngest = max(array_column($files, 'modified'));
                     $ageSeconds = time() - (int) $youngest;
-                    $ok = $ageSeconds <= $maxAgeSeconds;
+                    $ok = $ageSeconds <= $maxAgeSeconds + $graceSeconds;
                     $formatted = $this->formatDuration(max(0, $ageSeconds));
                     $items[] = $this->item(
                         'youngest_age',

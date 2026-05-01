@@ -272,6 +272,11 @@ return [
          *   target                                    The target name from 'targets' (required).
          *   min_number_of_backups                     Optional. Minimum count expected on the target.
          *   youngest_backup_should_be_within_the_last Optional. Max age of the newest backup, e.g. '6h', '2d'.
+         *   youngest_backup_grace                     Optional. Extra tolerance added on top of the
+         *                                             max age before the check fails, e.g. '15m'.
+         *                                             Prevents flapping when a backup runs slightly
+         *                                             later than the configured interval (job queue
+         *                                             lag, cron drift). Default: '15m'.
          *   warn_when_disk_space_is_lower_than        Optional. Free-disk warning threshold for the
          *                                             volume backing the target. Accepts:
          *                                               - byte counts ('524288000')
