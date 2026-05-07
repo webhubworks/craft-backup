@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.2.0 - 2026-05-07
+
+### Added
+- Craft CMS 4 support. The plugin now installs on Craft 4.4+ and Craft 5, on PHP 8.1+.
+
 ## 2.1.0 - 2026-05-01
 
 ### Added

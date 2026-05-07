@@ -9,8 +9,8 @@ No control-panel UI, no licensing fees. Schedule it from cron, forget about it. 
 
 ## Requirements
 
-- Craft CMS 5.0 or later
-- PHP 8.2 or later
+- Craft CMS 4.4 or later (Craft 5 supported)
+- PHP 8.1 or later
 - A database supported by Craft itself (we delegate to `Craft::$app->db->backup()`):
 
 | Engine | Versions | Dump tool required on PATH |
