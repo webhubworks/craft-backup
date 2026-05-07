@@ -34,6 +34,16 @@ class Plugin extends BasePlugin
 {
     public string $schemaVersion = '1.0.0';
 
+    /**
+     * Craft auto-merges `config/backup.php` into plugin settings and calls
+     * setSettings() on construction. We load that file ourselves via
+     * BackupConfig::load(), so swallow the call to avoid the
+     * "plugin doesn't have settings" warning on every request.
+     */
+    public function setSettings(array $settings): void
+    {
+    }
+
     public function init(): void
     {
         parent::init();

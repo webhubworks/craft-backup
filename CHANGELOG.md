@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.3.2 - 2026-05-07
+
+### Fixed
+- Suppressed `Attempting to set settings on a plugin that doesn't have settings: backup` warnings logged on every request. Craft auto-merges `config/backup.php` into plugin settings and calls `setSettings()` during plugin construction; since the plugin loads its config independently via `BackupConfig::load()` and defines no settings model, `Plugin::setSettings()` is now a no-op.
+
 ## 2.3.1 - 2026-05-07
 
 ### Fixed
