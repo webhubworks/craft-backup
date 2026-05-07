@@ -68,7 +68,7 @@
                                             {% if showDownload %}
                                                 <td class="cb-col-action">
                                                     {% if tooLarge %}
-                                                        <span class="cb-download cb-download--disabled cb-tooltip"
+                                                        <span class="cb-download cb-download--disabled cb-tooltip cb-tooltip--end"
                                                               data-cb-tooltip="{{ 'Backup is {size}, exceeding the {limit} download limit. Fetch directly from the server: {path}'|t('backup', {
                                                                   size: formatBytes(backup.size),
                                                                   limit: formatBytes(downloadMaxBytes),
