@@ -5,7 +5,6 @@ namespace webhubworks\backup\models;
 use Craft;
 use InvalidArgumentException;
 use webhubworks\backup\services\Bytes;
-use yii\helpers\ArrayHelper;
 
 /**
  * Immutable, validated snapshot of the plugin config at the start of a run.
@@ -45,7 +44,34 @@ final class BackupConfig
         $defaults = $bundled['*'] ?? [];
         $project = Craft::$app->config->getConfigFromFile('backup');
 
-        return self::fromArray(ArrayHelper::merge($defaults, $project));
+        return self::fromArray(self::deepMerge($defaults, $project));
+    }
+
+    /**
+     * Recursively merges the project config on top of the bundled defaults.
+     *
+     * Maps (string-keyed arrays) merge by key so users only need to override
+     * the leaves they care about. Lists (numeric-keyed arrays — monitor_backups
+     * rules, source.include/exclude paths, notification recipient lists) are
+     * replaced wholesale, so a project override doesn't silently inherit a
+     * default entry alongside its own.
+     */
+    private static function deepMerge(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            if (
+                is_array($value)
+                && isset($base[$key])
+                && is_array($base[$key])
+                && !array_is_list($value)
+                && !array_is_list($base[$key])
+            ) {
+                $base[$key] = self::deepMerge($base[$key], $value);
+            } else {
+                $base[$key] = $value;
+            }
+        }
+        return $base;
     }
 
     public static function fromArray(array $raw): self

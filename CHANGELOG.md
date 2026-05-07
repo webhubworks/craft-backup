@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.3.1 - 2026-05-07
+
+### Fixed
+- Project config now overrides bundled defaults predictably for list-shaped values. Previously `yii\helpers\ArrayHelper::merge` appended numeric-indexed lists, so a project `monitor_backups` rule was added on top of the bundled default rule (causing duplicate per-target check rows) and project `source.include`/`exclude` paths inherited the bundled paths alongside their own. Lists now replace wholesale; maps still merge by key.
+
 ## 2.3.0 - 2026-05-07
 
 ### Added
