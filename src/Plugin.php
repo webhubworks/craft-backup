@@ -6,14 +6,12 @@ use Craft;
 use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
 use craft\events\RegisterComponentTypesEvent;
-use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\events\TemplateEvent;
 use craft\i18n\PhpMessageSource;
 use craft\services\UserPermissions;
 use craft\services\Utilities;
 use craft\utilities\DbBackup;
-use craft\web\UrlManager;
 use craft\web\View;
 use webhubworks\backup\assetbundles\backup\BackupAsset;
 use webhubworks\backup\controllers\BackupController;
@@ -50,29 +48,12 @@ class Plugin extends BasePlugin
             $this->controllerNamespace = 'webhubworks\\backup\\console\\controllers';
         } else {
             $this->controllerNamespace = 'webhubworks\\backup\\controllers';
-            $this->registerCpRoutes();
             $this->registerTranslations();
             $this->renameDbBackupUtility();
             $this->extendDbBackupUtility();
             $this->registerPermissions();
             Craft::$app->getView()->registerTwigExtension(new BackupTwigExtension());
         }
-    }
-
-    protected function cpNavIconPath(): ?string
-    {
-        return Craft::getAlias('@webhubworks/backup/nav-icon.svg') ?: null;
-    }
-
-    private function registerCpRoutes(): void
-    {
-        Event::on(
-            UrlManager::class,
-            UrlManager::EVENT_REGISTER_CP_URL_RULES,
-            function(RegisterUrlRulesEvent $event) {
-                $event->rules['backup'] = 'backup/backup/index';
-            }
-        );
     }
 
     private function registerTranslations(): void
@@ -87,9 +68,13 @@ class Plugin extends BasePlugin
 
     private function renameDbBackupUtility(): void
     {
+        $eventName = version_compare(Craft::$app->getVersion(), '5.0', '<')
+            ? 'registerUtilityTypes'
+            : 'registerUtilities';
+
         Event::on(
             Utilities::class,
-            Utilities::EVENT_REGISTER_UTILITIES,
+            $eventName,
             function(RegisterComponentTypesEvent $event) {
                 $index = array_search(DbBackup::class, $event->types, true);
                 if ($index !== false) {

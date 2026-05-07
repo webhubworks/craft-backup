@@ -17,13 +17,6 @@ class BackupController extends Controller
 {
     protected array|bool|int $allowAnonymous = false;
 
-    public function actionIndex(): Response
-    {
-        $this->requirePermission('accessCp');
-
-        return $this->renderTemplate('backup/index', self::collectShellData());
-    }
-
     public function actionHealthCard(): Response
     {
         return $this->renderCard('backup/_card_health', function(BackupConfig $config) {
