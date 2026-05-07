@@ -2,8 +2,10 @@
 
 namespace webhubworks\backup\models;
 
+use Craft;
 use InvalidArgumentException;
 use webhubworks\backup\services\Bytes;
+use yii\helpers\ArrayHelper;
 
 /**
  * Immutable, validated snapshot of the plugin config at the start of a run.
@@ -34,6 +36,15 @@ final class BackupConfig
         public readonly ?string $xSendFileHeader,
         public readonly ?string $xSendFileUriPrefix,
     ) {
+    }
+
+    public static function load(): self
+    {
+        $bundled = require dirname(__DIR__) . '/config.php';
+        $defaults = $bundled['*'] ?? [];
+        $project = Craft::$app->config->getConfigFromFile('backup');
+
+        return self::fromArray(ArrayHelper::merge($defaults, $project));
     }
 
     public static function fromArray(array $raw): self

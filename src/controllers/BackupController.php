@@ -64,7 +64,7 @@ class BackupController extends Controller
         $this->requirePermission('backup:download');
 
         try {
-            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+            $config = BackupConfig::load();
         } catch (Throwable $e) {
             throw new BadRequestHttpException($e->getMessage(), 0, $e);
         }
@@ -152,7 +152,7 @@ class BackupController extends Controller
         $this->requireAcceptsJson();
 
         try {
-            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+            $config = BackupConfig::load();
         } catch (Throwable $e) {
             return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -175,7 +175,7 @@ class BackupController extends Controller
         $monitorEnabled = false;
 
         try {
-            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+            $config = BackupConfig::load();
             $monitorEnabled = $config->monitorBackups !== [];
         } catch (Throwable $e) {
             $configError = $e->getMessage();
@@ -196,7 +196,7 @@ class BackupController extends Controller
         $this->requireAcceptsJson();
 
         try {
-            $config = BackupConfig::fromArray(Craft::$app->config->getConfigFromFile('backup'));
+            $config = BackupConfig::load();
         } catch (Throwable $e) {
             throw new BadRequestHttpException($e->getMessage(), 0, $e);
         }
