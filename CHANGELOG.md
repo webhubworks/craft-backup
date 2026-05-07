@@ -1,5 +1,13 @@
 # Release Notes for Craft Backup
 
+## 2.3.0 - 2026-05-07
+
+### Added
+- New `source.split_db_and_files` config option. When enabled, each run produces two archives — one containing the database dumps, one containing the included files — instead of a single combined archive. Both archives share a runId in their filenames (e.g. `…-a1b2c3d4-db.zip` and `…-a1b2c3d4-files.zip`) and are treated as one logical backup by retention (GFS bucketing, size cap) and health checks (`min_number_of_backups`).
+
+### Changed
+- `BackupResult::$archivePath` (single, nullable) replaced by `BackupResult::$archivePaths` (list). One entry for combined runs, two for split runs.
+
 ## 2.2.0 - 2026-05-07
 
 ### Added

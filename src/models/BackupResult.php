@@ -5,13 +5,15 @@ namespace webhubworks\backup\models;
 final class BackupResult
 {
     /**
+     * @param list<string> $archivePaths Local paths of the archive(s) produced by this run.
+     *        One entry for a combined run; two entries (db + files) when source.split_db_and_files is on.
      * @param array<string, string> $targetStatuses target name => 'ok' | 'failed: reason'
      * @param array<string, array{free:int, threshold:int, total:int}> $lowDiskTargets
      *        target name => post-upload disk snapshot for targets that fell below their warn threshold
      */
     public function __construct(
         public readonly string $runId,
-        public readonly ?string $archivePath,
+        public readonly array $archivePaths,
         public readonly int $archiveBytes,
         public readonly float $durationSeconds,
         public readonly array $targetStatuses,
@@ -27,7 +29,7 @@ final class BackupResult
 
     public function isPartial(): bool
     {
-        return $this->archivePath !== null && $this->hasFailedTargets();
+        return $this->archivePaths !== [] && $this->hasFailedTargets();
     }
 
     public function summary(): string

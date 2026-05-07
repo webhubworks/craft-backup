@@ -17,12 +17,16 @@ use webhubworks\backup\services\targets\TargetInterface;
  * ("delete_oldest_backups_when_using_more_megabytes_than") drops the oldest
  * surviving backups until the total kept size is under the cap. The newest
  * backup is always retained, even if it alone exceeds the cap.
+ *
+ * When source.split_db_and_files is on, the two halves of a run share a runId
+ * in their filenames and are bucketed together: the pair is kept or pruned as
+ * one. The returned count is logical backups (groups), not files.
  */
 class RetentionPolicy
 {
     public function apply(TargetInterface $target, array $retention, bool $dryRun = false): int
     {
-        $backups = $this->sortByDateDesc($target->list());
+        $groups = $this->groupAndSortByDateDesc($target->list());
 
         $now = new DateTimeImmutable();
         $keep = [];
@@ -36,11 +40,11 @@ class RetentionPolicy
 
         $seenDay = $seenWeek = $seenMonth = $seenYear = [];
 
-        foreach ($backups as $backup) {
-            $date = $backup['date'];
+        foreach ($groups as $i => $group) {
+            $date = $group['date'];
 
             if ($date >= $keepAllUntil) {
-                $keep[$backup['path']] = true;
+                $keep[$i] = true;
                 continue;
             }
 
@@ -51,33 +55,35 @@ class RetentionPolicy
 
             if (count($seenDay) < $dailyLimit && !isset($seenDay[$dayKey])) {
                 $seenDay[$dayKey] = true;
-                $keep[$backup['path']] = true;
+                $keep[$i] = true;
                 continue;
             }
             if (count($seenWeek) < $weeklyLimit && !isset($seenWeek[$weekKey])) {
                 $seenWeek[$weekKey] = true;
-                $keep[$backup['path']] = true;
+                $keep[$i] = true;
                 continue;
             }
             if (count($seenMonth) < $monthlyLimit && !isset($seenMonth[$monthKey])) {
                 $seenMonth[$monthKey] = true;
-                $keep[$backup['path']] = true;
+                $keep[$i] = true;
                 continue;
             }
             if (count($seenYear) < $yearlyLimit && !isset($seenYear[$yearKey])) {
                 $seenYear[$yearKey] = true;
-                $keep[$backup['path']] = true;
+                $keep[$i] = true;
                 continue;
             }
         }
 
-        $this->enforceSizeCap($backups, $keep, $retention['delete_oldest_backups_when_using_more_megabytes_than'] ?? null);
+        $this->enforceSizeCap($groups, $keep, $retention['delete_oldest_backups_when_using_more_megabytes_than'] ?? null);
 
         $deleted = 0;
-        foreach ($backups as $backup) {
-            if (!isset($keep[$backup['path']])) {
+        foreach ($groups as $i => $group) {
+            if (!isset($keep[$i])) {
                 if (!$dryRun) {
-                    $target->delete($backup['path']);
+                    foreach ($group['paths'] as $path) {
+                        $target->delete($path);
+                    }
                 }
                 $deleted++;
             }
@@ -87,10 +93,10 @@ class RetentionPolicy
     }
 
     /**
-     * @param array<int, array{path: string, date: DateTimeImmutable, size: int}> $backups
-     * @param array<string, true> $keep
+     * @param list<array{paths:list<string>, date:DateTimeImmutable, size:int}> $groups
+     * @param array<int, true> $keep
      */
-    private function enforceSizeCap(array $backups, array &$keep, int|float|null $maxMegabytes): void
+    private function enforceSizeCap(array $groups, array &$keep, int|float|null $maxMegabytes): void
     {
         if ($maxMegabytes === null || $maxMegabytes <= 0) {
             return;
@@ -99,9 +105,9 @@ class RetentionPolicy
         $maxBytes = (int) ($maxMegabytes * 1024 * 1024);
 
         $keptSize = 0;
-        foreach ($backups as $backup) {
-            if (isset($keep[$backup['path']])) {
-                $keptSize += $backup['size'];
+        foreach ($groups as $i => $group) {
+            if (isset($keep[$i])) {
+                $keptSize += $group['size'];
             }
         }
 
@@ -109,33 +115,60 @@ class RetentionPolicy
             return;
         }
 
-        // Drop oldest kept backups until under the cap, but always retain the newest one.
-        foreach (array_reverse($backups) as $backup) {
+        // Drop oldest kept groups until under the cap, but always retain the newest one.
+        foreach (array_reverse($groups, true) as $i => $group) {
             if ($keptSize <= $maxBytes || count($keep) <= 1) {
                 return;
             }
-            if (!isset($keep[$backup['path']])) {
+            if (!isset($keep[$i])) {
                 continue;
             }
-            unset($keep[$backup['path']]);
-            $keptSize -= $backup['size'];
+            unset($keep[$i]);
+            $keptSize -= $group['size'];
         }
     }
 
-    private function sortByDateDesc(array $listing): array
+    /**
+     * @return list<array{paths: list<string>, date: DateTimeImmutable, size: int}>
+     */
+    private function groupAndSortByDateDesc(array $listing): array
     {
-        $parsed = [];
+        $byRunId = [];
+        $loners = [];
+
         foreach ($listing as $entry) {
-            $date = $this->parseDate($entry['path']) ?? (new DateTimeImmutable())->setTimestamp($entry['modified'] ?? 0);
-            $parsed[] = [
-                'path' => $entry['path'],
-                'date' => $date,
-                'size' => (int) ($entry['size'] ?? 0),
-            ];
+            $path = $entry['path'];
+            $size = (int) ($entry['size'] ?? 0);
+            $date = $this->parseDate($path) ?? (new DateTimeImmutable())->setTimestamp((int) ($entry['modified'] ?? 0));
+            $runId = BackupGrouper::parseRunId($path);
+
+            if ($runId === null) {
+                $loners[] = ['path' => $path, 'date' => $date, 'size' => $size];
+                continue;
+            }
+            $byRunId[$runId][] = ['path' => $path, 'date' => $date, 'size' => $size];
         }
 
-        usort($parsed, fn($a, $b) => $b['date'] <=> $a['date']);
-        return $parsed;
+        $groups = [];
+        foreach ($byRunId as $files) {
+            $latest = $files[0]['date'];
+            foreach ($files as $f) {
+                if ($f['date'] > $latest) {
+                    $latest = $f['date'];
+                }
+            }
+            $groups[] = [
+                'paths' => array_column($files, 'path'),
+                'date' => $latest,
+                'size' => array_sum(array_column($files, 'size')),
+            ];
+        }
+        foreach ($loners as $f) {
+            $groups[] = ['paths' => [$f['path']], 'date' => $f['date'], 'size' => $f['size']];
+        }
+
+        usort($groups, fn($a, $b) => $b['date'] <=> $a['date']);
+        return $groups;
     }
 
     private function parseDate(string $path): ?DateTimeImmutable

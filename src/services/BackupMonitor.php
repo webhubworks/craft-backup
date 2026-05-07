@@ -111,6 +111,7 @@ class BackupMonitor extends Component
         try {
             $target = $this->buildTarget($config->targets[$targetName]);
             $files = $target->list();
+            $groups = BackupGrouper::group($files);
             $items[] = $this->item('target_reachable', $reachableLabel, 'ok');
         } catch (Throwable $e) {
             $items[] = $this->item(
@@ -140,7 +141,7 @@ class BackupMonitor extends Component
                     "'min_number_of_backups' must be a non-negative integer.",
                 );
             } else {
-                $count = count($files);
+                $count = count($groups);
                 $ok = $count >= $min;
                 $items[] = $this->item(
                     'min_backups',
@@ -174,7 +175,7 @@ class BackupMonitor extends Component
             }
 
             if ($maxAgeSeconds !== null) {
-                if ($files === []) {
+                if ($groups === []) {
                     $items[] = $this->item(
                         'youngest_age',
                         $ageLabel,
@@ -182,7 +183,7 @@ class BackupMonitor extends Component
                         Craft::t('backup', 'No backups found on target.'),
                     );
                 } else {
-                    $youngest = max(array_column($files, 'modified'));
+                    $youngest = max(array_column($groups, 'modified'));
                     $ageSeconds = time() - (int) $youngest;
                     $ok = $ageSeconds <= $maxAgeSeconds + $graceSeconds;
                     $formatted = $this->formatDuration(max(0, $ageSeconds));

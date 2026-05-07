@@ -51,6 +51,20 @@ return [
             ],
 
             'follow_symlinks' => false,
+
+            /**
+             * When true, each run produces two archives — one with the database
+             * dumps and one with the included files — instead of a single
+             * combined archive. Both archives share a runId and date in their
+             * filenames (e.g. `craft-backup-2026-05-07_14-30-15-a1b2c3d4-db.zip`
+             * and `…-files.zip`) and are treated as a single logical backup by
+             * retention and health checks: GFS bucketing, the size cap, and
+             * `min_number_of_backups` all count the pair as one.
+             *
+             * The `--db` and `--files` flags on `./craft backup/run` still
+             * work; they just suppress the half they exclude.
+             */
+            'split_db_and_files' => false,
         ],
 
         /**

@@ -25,41 +25,64 @@ class BackupRunner extends Component
         $startedAt = microtime(true);
 
         $logger = $this->logger($runId);
-        $logger->info('Backup run starting', ['dry_run' => (bool) ($flags['dry_run'] ?? false)]);
+        $logger->info('Backup run starting', [
+            'dry_run' => (bool) ($flags['dry_run'] ?? false),
+            'split' => $config->splitDbAndFiles,
+        ]);
 
         $stagingDir = $this->makeStagingDir($config->name, $runId);
-        $archivePath = null;
+        $archivePaths = [];
         $archiveBytes = 0;
         $targetStatuses = [];
         $errors = [];
         $lowDiskTargets = [];
 
         try {
-            if (!($flags['only_files'] ?? false)) {
-                $dumps = (new DbDumper())->dump($config->databases, $stagingDir);
-                $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
+            $onlyDb = (bool) ($flags['only_db'] ?? false);
+            $onlyFiles = (bool) ($flags['only_files'] ?? false);
+
+            if ($config->splitDbAndFiles) {
+                if (!$onlyFiles) {
+                    $dbStaging = $stagingDir . DIRECTORY_SEPARATOR . 'db-staging';
+                    FileHelper::createDirectory($dbStaging);
+                    $dumps = (new DbDumper())->dump($config->databases, $dbStaging);
+                    $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
+                    $archivePaths[] = $this->finishArchive($config, $runId, $dbStaging, dirname($stagingDir), $logger, 'db');
+                }
+
+                if (!$onlyDb) {
+                    $filesStaging = $stagingDir . DIRECTORY_SEPARATOR . 'files-staging';
+                    FileHelper::createDirectory($filesStaging);
+                    $this->stageFiles($config, $filesStaging, $logger);
+                    $archivePaths[] = $this->finishArchive($config, $runId, $filesStaging, dirname($stagingDir), $logger, 'files');
+                }
+            } else {
+                if (!$onlyFiles) {
+                    $dumps = (new DbDumper())->dump($config->databases, $stagingDir);
+                    $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
+                }
+
+                if (!$onlyDb) {
+                    $this->stageFiles($config, $stagingDir, $logger);
+                }
+
+                $archivePaths[] = $this->finishArchive($config, $runId, $stagingDir, dirname($stagingDir), $logger, null);
             }
 
-            if (!($flags['only_db'] ?? false)) {
-                $this->stageFiles($config, $stagingDir, $logger);
-            }
-
-            $archivePath = $this->buildArchive($config, $runId, $stagingDir, $logger);
-            $archiveBytes = (int) filesize($archivePath);
-
-            if ($config->encryptionEnabled) {
-                $archivePath = $this->encryptArchive($config, $archivePath, $logger);
-                $archiveBytes = (int) filesize($archivePath);
+            foreach ($archivePaths as $path) {
+                $archiveBytes += (int) filesize($path);
             }
 
             if ($flags['dry_run'] ?? false) {
-                $logger->info('Dry run: skipping upload and cleanup', ['archive' => $archivePath]);
-                return $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors);
+                $logger->info('Dry run: skipping upload and cleanup', ['archives' => $archivePaths]);
+                return $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors);
             }
 
             foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
                 try {
-                    $target->upload($archivePath, basename($archivePath), $config);
+                    foreach ($archivePaths as $archivePath) {
+                        $target->upload($archivePath, basename($archivePath), $config);
+                    }
                     $targetStatuses[$name] = 'ok';
                     $logger->info("Uploaded to {$name}");
 
@@ -93,7 +116,7 @@ class BackupRunner extends Component
             FileHelper::removeDirectory($stagingDir);
         }
 
-        $result = $this->result($runId, $archivePath, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
+        $result = $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
 
         if (!($flags['dry_run'] ?? false)) {
             (new RunStateStore())->record($result);
@@ -170,16 +193,29 @@ class BackupRunner extends Component
         $logger->info("Staged {$count} file(s)");
     }
 
-    private function buildArchive(BackupConfig $config, string $runId, string $stagingDir, BackupLogger $logger): string
+    /**
+     * Builds the archive for a staged directory and, when configured, wraps
+     * it in the encrypted envelope. Returns the final on-disk path.
+     *
+     * $kind is null for combined runs and 'db' or 'files' for split runs;
+     * when set, it's appended to the filename so split halves are grouped
+     * in retention/monitor by their shared runId.
+     */
+    private function finishArchive(BackupConfig $config, string $runId, string $stagingDir, string $outputDir, BackupLogger $logger, ?string $kind): string
     {
         $extension = $config->compressionFormat === 'zip' ? 'zip' : 'tar.gz';
-        $filename = sprintf('%s-%s-%s.%s', $config->name, date('Y-m-d_H-i-s'), $runId, $extension);
-        $archivePath = dirname($stagingDir) . DIRECTORY_SEPARATOR . $filename;
+        $kindSuffix = $kind !== null ? "-{$kind}" : '';
+        $filename = sprintf('%s-%s-%s%s.%s', $config->name, date('Y-m-d_H-i-s'), $runId, $kindSuffix, $extension);
+        $archivePath = $outputDir . DIRECTORY_SEPARATOR . $filename;
 
         (new Archiver())->archive($stagingDir, $archivePath, $config->compressionFormat, $config->archivePassword);
 
         $note = $config->archivePassword !== null ? ' (password-protected)' : '';
         $logger->info('Archive built' . $note, ['path' => $archivePath, 'bytes' => filesize($archivePath)]);
+
+        if ($config->encryptionEnabled) {
+            $archivePath = $this->encryptArchive($config, $archivePath, $logger);
+        }
 
         return $archivePath;
     }
@@ -223,11 +259,14 @@ class BackupRunner extends Component
         return $base;
     }
 
-    private function result(string $runId, ?string $archive, int $bytes, float $start, array $statuses, array $errors, array $lowDiskTargets = []): BackupResult
+    /**
+     * @param list<string> $archives
+     */
+    private function result(string $runId, array $archives, int $bytes, float $start, array $statuses, array $errors, array $lowDiskTargets = []): BackupResult
     {
         return new BackupResult(
             runId: $runId,
-            archivePath: $archive,
+            archivePaths: $archives,
             archiveBytes: $bytes,
             durationSeconds: microtime(true) - $start,
             targetStatuses: $statuses,
@@ -301,10 +340,20 @@ class BackupRunner extends Component
             "Site:     {$siteName}",
             "Run ID:   {$result->runId}",
             sprintf('Duration: %.1fs', $result->durationSeconds),
-            sprintf('Archive:  %s (%d bytes)', $result->archivePath ?? '(not produced)', $result->archiveBytes),
-            '',
-            'Targets:',
+            sprintf('Total:    %d bytes', $result->archiveBytes),
         ];
+
+        if ($result->archivePaths !== []) {
+            $lines[] = 'Archives:';
+            foreach ($result->archivePaths as $path) {
+                $lines[] = '  - ' . $path;
+            }
+        } else {
+            $lines[] = 'Archive:  (not produced)';
+        }
+
+        $lines[] = '';
+        $lines[] = 'Targets:';
         foreach ($result->targetStatuses as $name => $targetStatus) {
             $lines[] = "  - {$name}: {$targetStatus}";
         }
