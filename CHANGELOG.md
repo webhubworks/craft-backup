@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.3.3 - 2026-05-08
+
+### Fixed
+- Archives left behind in `storage/runtime/temp/craft-backup/` after every run. The runner removed the per-run staging subdirectory but not the archive file itself, which sits one level up; it's now unlinked in the same `finally` block. Dry runs still preserve the archive so its path stays inspectable.
+
 ## 2.3.2 - 2026-05-07
 
 ### Fixed

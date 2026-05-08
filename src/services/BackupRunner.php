@@ -114,6 +114,13 @@ class BackupRunner extends Component
             $logger->error('Backup run failed', ['error' => $e->getMessage()]);
         } finally {
             FileHelper::removeDirectory($stagingDir);
+            if (!($flags['dry_run'] ?? false)) {
+                foreach ($archivePaths as $path) {
+                    if (is_file($path)) {
+                        @unlink($path);
+                    }
+                }
+            }
         }
 
         $result = $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
