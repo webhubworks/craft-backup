@@ -1,5 +1,10 @@
 # Release Notes for Craft Backup
 
+## 2.3.4 - 2026-05-08
+
+### Fixed
+- DB dumps no longer leave a copy in `storage/backups/`. `DbDumper` previously called Craft's `$db->backup()`, which always writes to `storage/backups/{sitename}--{date}--{version}.sql` first, then renamed the file into staging — leaving an orphan whenever the rename failed silently or the run was interrupted between the two calls. It now calls `$db->backupTo($target)` to write the dump straight into the staging directory.
+
 ## 2.3.3 - 2026-05-08
 
 ### Fixed
