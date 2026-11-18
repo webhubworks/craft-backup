@@ -82,3 +82,13 @@ it('leaves out empty error lines, which Discord rejects', function() {
 
     expect(array_column($fields, 'name'))->not->toContain('Errors');
 });
+
+it('keeps the webhook token out of delivery errors', function() {
+    $channel = new WebhookChannel(['url' => 'http://user:pass@127.0.0.1:1/hooks/secret-token']);
+
+    expect(fn() => $channel->send(failedRun()))
+        ->toThrow(fn(RuntimeException $e) => expect($e->getMessage())
+            ->not->toContain('secret-token')
+            ->not->toContain('pass')
+            ->toContain('http://127.0.0.1:1/[redacted]'));
+});

@@ -13,6 +13,7 @@
 - Requires `league/flysystem-sftp-v3` 3.36 or later, the first version that accepts OpenSSH `SHA256:` fingerprints.
 
 ### Fixed
+- When a Slack notification failed, the logged error and the reply to "Send test notification" contained the full webhook URL, including its secret token. Delivery errors from all HTTP channels now show only the scheme, host, and port.
 - Included files in a folder whose path starts with the project root's path, such as `/var/www2` next to a root of `/var/www`, were stored under a mangled path like `2/...` inside the archive. They now keep their full path, like any other file outside the project root.
 
 ## 2.3.5 - 2026-11-18
