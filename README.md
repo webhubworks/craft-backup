@@ -5,7 +5,7 @@ Command-line only, database and files, compressed, encrypted, shipped off-site o
 
 If you've used `laravel-backup` on a Laravel project, you already know how this one feels. See [Compared to spatie/laravel-backup](#compared-to-spatielaravel-backup) for the side-by-side command and feature map.
 
-No control-panel UI, no licensing fees. Schedule it from cron, forget about it. (Well, you might want to use the [monitoring feature](https://github.com/webhubworks/craft-backup/blob/main/README.md#monitoring) anyway.)
+No licensing fees. Schedule it from cron and forget about it. The Backups utility in the control panel shows backup health, the archives on each target, and your notification channels, and [notifications](#notifications) reach you by mail, Slack, Discord, or a JSON webhook when something goes wrong.
 
 ## Requirements
 
@@ -45,7 +45,62 @@ Each entry under `targets` maps a name (freely chosen) to a driver config. Uploa
 | Driver | Description | Required keys | Optional keys |
 |---|---|---|---|
 | `local` | Writes into a directory on the same host | `root` (path or `@alias`) | — |
-| `sftp` | Uploads via SSH to a remote server | `host`, `username`, and either `password` or `private_key` | `port` (22), `passphrase`, `root` (`/backups`), `timeout` (30) |
+| `sftp` | Uploads via SSH to a remote server | `host`, `username`, and either `password` or `private_key` | `port` (22), `passphrase`, `root` (`/backups`), `timeout` (30), `host_fingerprint` |
+
+#### SFTP host fingerprint
+
+Set `host_fingerprint` so the plugin only sends backups to your server. Without it, any server that answers on the configured host receives the backup, and every run logs a warning. Get the fingerprint from a machine that you trust:
+
+```bash
+ssh-keyscan -t ed25519 backup.example.com | ssh-keygen -lf - -E sha256
+```
+
+Copy the `SHA256:...` part of the output into `host_fingerprint`. When the server's host key doesn't match, the upload fails and the run reports the target as failed.
+
+### Notifications
+
+Each channel under `notifications` has the same three events: `on_failure`, `on_success`, and `on_low_disk_space`. Mail takes a list of recipients per event. The other channels take `true` or `false` per event and stay off until you set their URL.
+
+| Channel | Enable with | Format |
+|---|---|---|
+| `mail` | Recipient addresses per event | Plain-text email |
+| `slack` | `BACKUP_SLACK_WEBHOOK_URL` | Message in a Slack channel |
+| `discord` | `BACKUP_DISCORD_WEBHOOK_URL` | Embed with a colored sidebar: green for success, red for failure, amber for low disk space |
+| `webhook` | `BACKUP_WEBHOOK_URL` | JSON document for your own tooling |
+
+The Notifications card in the Backups utility lists every configured channel. For Slack, Discord, and the webhook, it has a **Send test notification** link.
+
+#### JSON webhook
+
+The webhook POSTs a JSON document like this one:
+
+```json
+{
+    "schema": 1,
+    "event": "on_failure",
+    "status": "failure",
+    "site": "My Site",
+    "timestamp": "2026-11-26T03:00:42+00:00",
+    "run_id": "ead13fb4",
+    "duration_seconds": 42.1,
+    "archives": [{"name": "craft-backup-2026-11-26_03-00-00-ead13fb4.tar.gz.enc", "bytes": 1300000}],
+    "targets": {
+        "local": {"status": "ok", "error": null},
+        "offsite": {"status": "failed", "error": "Connection refused"}
+    },
+    "low_disk_targets": {},
+    "errors": ["target offsite: Connection refused"]
+}
+```
+
+`status` is `success`, `failure`, `low_disk_space`, or `test`. Archive names never include server paths. `schema` changes only when a field changes meaning or goes away, so check it before you parse.
+
+When you set `BACKUP_WEBHOOK_SECRET`, each request carries an `X-Craft-Backup-Signature` header: `sha256=` followed by the hex HMAC-SHA256 of the raw request body, keyed with the secret. Verify it before you trust the body:
+
+```php
+$expected = 'sha256=' . hash_hmac('sha256', file_get_contents('php://input'), $secret);
+$valid = hash_equals($expected, $_SERVER['HTTP_X_CRAFT_BACKUP_SIGNATURE'] ?? '');
+```
 
 ### Environment variables
 
@@ -64,6 +119,12 @@ The published `config/backup.php` reads these out of `.env` via `App::env()` so 
 | `BACKUP_SFTP_PRIVATE_KEY` | `targets.<name>.private_key` | Path to the SSH private key file |
 | `BACKUP_SFTP_PASSPHRASE` | `targets.<name>.passphrase` | Passphrase for the private key |
 | `BACKUP_SFTP_ROOT` | `targets.<name>.root` | Remote directory backups are written into |
+| `BACKUP_SFTP_HOST_FINGERPRINT` | `targets.<name>.host_fingerprint` | Host key fingerprint, for example `SHA256:...` |
+| `BACKUP_SLACK_WEBHOOK_URL` | `notifications.slack.webhook_url` | Slack incoming webhook URL |
+| `BACKUP_SLACK_CHANNEL` | `notifications.slack.channel` | Optional Slack channel override |
+| `BACKUP_DISCORD_WEBHOOK_URL` | `notifications.discord.webhook_url` | Discord channel webhook URL |
+| `BACKUP_WEBHOOK_URL` | `notifications.webhook.url` | URL that receives the JSON webhook |
+| `BACKUP_WEBHOOK_SECRET` | `notifications.webhook.secret` | Optional key for the `X-Craft-Backup-Signature` header |
 
 ## Commands
 
@@ -152,8 +213,8 @@ This plugin deliberately mirrors the CLI surface and config shape of [spatie/lar
 | ✅                                              | GFS retention                           |
 | ✅                                              | Mail notifications                      |
 | ✅                                              | Slack notifications                     |
+| ✅                                              | Discord notifications                   |
 | ✅ (via `backup/monitor` + Oh Dear integration) | Monitor the health of your backups      |
-| _Coming soon_                                   | Discord notifications, Webhooks         |
 
 ## What is GFS retention? And why should I care?
 

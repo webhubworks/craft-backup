@@ -72,6 +72,8 @@ return [
     'Send test notification' => 'Send test notification',
     'Sending…' => 'Sending…',
     'Slack' => 'Slack',
+    'Discord' => 'Discord',
+    'Webhook' => 'Webhook',
     'Test failed — see browser console' => 'Test failed — see browser console',
     'Test sent ✓' => 'Test sent ✓',
     'Free disk space is below the configured warning threshold.' => 'Free disk space is below the configured warning threshold.',

@@ -1,5 +1,20 @@
 # Release Notes for Craft Backup
 
+## Unreleased
+
+### Added
+- Discord notifications. Set `BACKUP_DISCORD_WEBHOOK_URL` to post an embed with a colored sidebar (green for success, red for failure, amber for low disk space), the run ID, duration, size, per-target results, and errors. The `notifications.discord` block takes `username`, `avatar_url`, and the same per-event toggles as Slack.
+- JSON webhook notifications. Set `BACKUP_WEBHOOK_URL` to receive a versioned JSON document (`"schema": 1`) for every enabled event. With `BACKUP_WEBHOOK_SECRET`, each request carries an `X-Craft-Backup-Signature` header with an HMAC-SHA256 of the body. See the README for the payload and how to verify the signature.
+- Discord and the webhook appear on the Notifications card, each with a "Send test notification" link.
+- Optional `host_fingerprint` for SFTP targets. When it's set, uploads fail if the server's host key doesn't match. When it's missing, every run logs a warning.
+
+### Changed
+- Notification messages list archive file names instead of absolute paths on the server, and show sizes in KB, MB, or GB.
+- Requires `league/flysystem-sftp-v3` 3.36 or later, the first version that accepts OpenSSH `SHA256:` fingerprints.
+
+### Fixed
+- Included files in a folder whose path starts with the project root's path, such as `/var/www2` next to a root of `/var/www`, were stored under a mangled path like `2/...` inside the archive. They now keep their full path, like any other file outside the project root.
+
 ## 2.3.5 - 2026-11-18
 
 > **Heads-up:** Retention now keeps more backups than before, so targets use more disk after the update. If you rely on `delete_oldest_backups_when_using_more_megabytes_than`, check that the cap still fits.

@@ -78,4 +78,21 @@ final class Bytes
 
         return $threshold['bytes'];
     }
+
+    /**
+     * Formats a byte count for messages, e.g. "1.24 MB".
+     */
+    public static function format(int $bytes): string
+    {
+        if ($bytes >= 1024 ** 3) {
+            return number_format($bytes / (1024 ** 3), 2) . ' GB';
+        }
+        if ($bytes >= 1024 ** 2) {
+            return number_format($bytes / (1024 ** 2), 2) . ' MB';
+        }
+        if ($bytes >= 1024) {
+            return number_format($bytes / 1024, 1) . ' KB';
+        }
+        return $bytes . ' B';
+    }
 }

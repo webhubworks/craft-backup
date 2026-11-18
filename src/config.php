@@ -17,6 +17,9 @@ use craft\helpers\App;
  *   BACKUP_ENCRYPTION_ENABLED  — overrides 'encryption.enabled' (true/false/1/0)
  *   BACKUP_ENCRYPTION_KEY      — overrides 'encryption.key'
  *   BACKUP_SLACK_WEBHOOK_URL   — overrides 'notifications.slack.webhook_url'
+ *   BACKUP_DISCORD_WEBHOOK_URL: overrides 'notifications.discord.webhook_url'
+ *   BACKUP_WEBHOOK_URL:         overrides 'notifications.webhook.url'
+ *   BACKUP_WEBHOOK_SECRET:      overrides 'notifications.webhook.secret'
  *
  * SFTP target credentials (only used when the commented 'offsite' block is active):
  *
@@ -27,6 +30,7 @@ use craft\helpers\App;
  *   BACKUP_SFTP_PRIVATE_KEY    — path to the private key file
  *   BACKUP_SFTP_PASSPHRASE     — passphrase for the private key
  *   BACKUP_SFTP_ROOT           — remote directory backups are written into
+ *   BACKUP_SFTP_HOST_FINGERPRINT: host key fingerprint, e.g. 'SHA256:...'
  */
 
 return [
@@ -152,7 +156,8 @@ return [
          *               required: root (path or @alias)
          *   'sftp'  — uploads via SSH to a remote server
          *               required: host, username, and either password or private_key
-         *               optional: port (22), passphrase, root (/backups), timeout (30)
+         *               optional: port (22), passphrase, root (/backups), timeout (30),
+         *                         host_fingerprint (recommended, see the README)
          */
         'targets' => [
             'local' => [
@@ -169,6 +174,8 @@ return [
             //     'passphrase' => App::env('BACKUP_SFTP_PASSPHRASE') ?: null,
             //     'root' => App::env('BACKUP_SFTP_ROOT') ?: '/backups',
             //     'timeout' => 30,
+            //     // Rejects the connection when the server's host key doesn't match, e.g. 'SHA256:...'.
+            //     'host_fingerprint' => App::env('BACKUP_SFTP_HOST_FINGERPRINT') ?: null,
             // ],
         ],
 
@@ -273,6 +280,35 @@ return [
                 // Emoji shortcode (':floppy_disk:') or full image URL. Null uses the webhook's default icon.
                 'icon' => ':floppy_disk:',
                 // Per-event toggles.
+                'on_failure' => true,
+                'on_success' => false,
+                'on_low_disk_space' => true,
+            ],
+
+            /**
+             * Discord. Posts an embed to a channel webhook (Server Settings, Integrations,
+             * Webhooks). Leave 'webhook_url' null to disable Discord.
+             */
+            'discord' => [
+                'webhook_url' => App::env('BACKUP_DISCORD_WEBHOOK_URL') ?: null,
+                // Display name and avatar image URL. Null uses the webhook's defaults.
+                'username' => 'Craft Backup',
+                'avatar_url' => null,
+                'on_failure' => true,
+                'on_success' => false,
+                'on_low_disk_space' => true,
+            ],
+
+            /**
+             * JSON webhook. POSTs a versioned JSON document (schema 1) with the event,
+             * status, run ID, archives, per-target results, and errors. Leave 'url'
+             * null to disable it. With a 'secret', each request carries an
+             * X-Craft-Backup-Signature header: 'sha256=' followed by the hex
+             * HMAC-SHA256 of the raw body, keyed with the secret.
+             */
+            'webhook' => [
+                'url' => App::env('BACKUP_WEBHOOK_URL') ?: null,
+                'secret' => App::env('BACKUP_WEBHOOK_SECRET') ?: null,
                 'on_failure' => true,
                 'on_success' => false,
                 'on_low_disk_space' => true,

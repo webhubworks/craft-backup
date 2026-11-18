@@ -43,8 +43,8 @@
         });
     }
 
-    function initTestSlack(scope) {
-        var links = scope.querySelectorAll('[data-cb-test-slack]');
+    function initTestNotification(scope) {
+        var links = scope.querySelectorAll('[data-cb-test-notification]');
         for (var i = 0; i < links.length; i++) {
             (function(link) {
                 link.addEventListener('click', function(ev) {
@@ -61,6 +61,7 @@
                     link.textContent = labelSending;
 
                     var body = new URLSearchParams();
+                    body.append('channel', link.getAttribute('data-cb-channel'));
                     if (typeof Craft !== 'undefined' && Craft.csrfTokenName && Craft.csrfTokenValue) {
                         body.append(Craft.csrfTokenName, Craft.csrfTokenValue);
                     }
@@ -82,7 +83,7 @@
                             } else {
                                 link.textContent = labelFailed;
                                 if (data && data.error && typeof console !== 'undefined') {
-                                    console.warn('Slack test failed:', data.error);
+                                    console.warn('Test notification failed:', data.error);
                                 }
                             }
                             window.setTimeout(function() {
@@ -93,7 +94,7 @@
                         .catch(function(err) {
                             link.textContent = labelFailed;
                             if (typeof console !== 'undefined') {
-                                console.warn('Slack test failed:', err);
+                                console.warn('Test notification failed:', err);
                             }
                             window.setTimeout(function() {
                                 link.textContent = labelDefault;
@@ -139,7 +140,7 @@
                 } else if (card === 'backups') {
                     initTabs();
                 } else if (card === 'notifications') {
-                    initTestSlack(placeholder);
+                    initTestNotification(placeholder);
                 }
             })
             .catch(function(err) {

@@ -8,6 +8,7 @@ use Throwable;
 use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\models\BackupResult;
+use webhubworks\backup\services\notifications\Notifier;
 use webhubworks\backup\services\targets\LocalTarget;
 use webhubworks\backup\services\targets\SftpTarget;
 use webhubworks\backup\services\targets\TargetInterface;
@@ -37,6 +38,7 @@ class BackupRunner extends Component
         FileHelper::createDirectory($stagingDir);
         $archivePaths = [];
         $archiveBytes = 0;
+        $archiveSizes = [];
         $targetStatuses = [];
         $errors = [];
         $lowDiskTargets = [];
@@ -74,15 +76,19 @@ class BackupRunner extends Component
             }
 
             foreach ($archivePaths as $path) {
-                $archiveBytes += (int) filesize($path);
+                $archiveSizes[basename($path)] = (int) filesize($path);
             }
+            $archiveBytes = array_sum($archiveSizes);
 
             if ($dryRun) {
                 $logger->info('Dry run: skipping upload and cleanup', ['archives' => $archivePaths]);
-                return $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors);
+                return $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, [], $archiveSizes);
             }
 
             foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
+                if ($target instanceof SftpTarget && !$target->hasHostFingerprint()) {
+                    $logger->warning("SFTP target {$name} has no host_fingerprint, so any server answering on its host receives the backup.");
+                }
                 try {
                     foreach ($archivePaths as $archivePath) {
                         $target->upload($archivePath, basename($archivePath), $config);
@@ -125,12 +131,13 @@ class BackupRunner extends Component
             FileHelper::removeDirectory($dryRun ? $stagingDir : $runDir);
         }
 
-        $result = $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
+        $result = $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets, $archiveSizes);
 
         if (!$dryRun) {
             (new RunStateStore())->record($result);
-            $this->notify($config, $result, $logger);
-            $this->notifyLowDisk($config, $result, $logger);
+            $notifier = new Notifier($config, $logger);
+            $notifier->notifyRun($result);
+            $notifier->notifyLowDisk($result);
         }
 
         return $result;
@@ -272,7 +279,7 @@ class BackupRunner extends Component
     /**
      * @param list<string> $archives
      */
-    private function result(string $runId, array $archives, int $bytes, float $start, array $statuses, array $errors, array $lowDiskTargets = []): BackupResult
+    private function result(string $runId, array $archives, int $bytes, float $start, array $statuses, array $errors, array $lowDiskTargets = [], array $archiveSizes = []): BackupResult
     {
         return new BackupResult(
             runId: $runId,
@@ -282,6 +289,7 @@ class BackupRunner extends Component
             targetStatuses: $statuses,
             errors: $errors,
             lowDiskTargets: $lowDiskTargets,
+            archiveSizes: $archiveSizes,
         );
     }
 
@@ -335,193 +343,5 @@ class BackupRunner extends Component
         $logger = new BackupLogger();
         $logger->runId = $runId;
         return $logger;
-    }
-
-    private function notify(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
-    {
-        $successful = $result->isSuccessful();
-        $event = $successful ? 'on_success' : 'on_failure';
-        $siteName = Craft::$app->getSystemName() ?: $config->name;
-        $status = $successful ? 'Success' : 'Failure';
-
-        $lines = [
-            $successful ? 'Backup run completed successfully.' : 'A backup run did not complete successfully.',
-            '',
-            "Site:     {$siteName}",
-            "Run ID:   {$result->runId}",
-            sprintf('Duration: %.1fs', $result->durationSeconds),
-            sprintf('Total:    %d bytes', $result->archiveBytes),
-        ];
-
-        if ($result->archivePaths !== []) {
-            $lines[] = 'Archives:';
-            foreach ($result->archivePaths as $path) {
-                $lines[] = '  - ' . $path;
-            }
-        } else {
-            $lines[] = 'Archive:  (not produced)';
-        }
-
-        $lines[] = '';
-        $lines[] = 'Targets:';
-        foreach ($result->targetStatuses as $name => $targetStatus) {
-            $lines[] = "  - {$name}: {$targetStatus}";
-        }
-        if ($result->targetStatuses === []) {
-            $lines[] = '  (none reached)';
-        }
-        if ($result->errors !== []) {
-            $lines[] = '';
-            $lines[] = 'Errors:';
-            foreach ($result->errors as $error) {
-                $lines[] = "  - {$error}";
-            }
-        }
-
-        $body = implode(PHP_EOL, $lines);
-        $this->sendMail($config, $event, "[Craft Backup] {$status} on {$siteName}", $body, $logger);
-        $this->sendSlack($config, $event, "[Craft Backup] {$status} on {$siteName}", $body, $logger);
-    }
-
-    private function notifyLowDisk(BackupConfig $config, BackupResult $result, BackupLogger $logger): void
-    {
-        if ($result->lowDiskTargets === []) {
-            return;
-        }
-
-        $siteName = Craft::$app->getSystemName() ?: $config->name;
-        $subject = "[Craft Backup] Low disk space on {$siteName}";
-
-        $lines = [
-            'One or more backup targets fell below their configured free-disk warning threshold after the latest backup.',
-            '',
-            "Site:   {$siteName}",
-            "Run ID: {$result->runId}",
-            '',
-            'Targets:',
-        ];
-        foreach ($result->lowDiskTargets as $name => $info) {
-            $lines[] = sprintf(
-                '  - %s: %s free of %s (threshold %s)',
-                $name,
-                $this->formatBytes($info['free']),
-                $this->formatBytes($info['total']),
-                $this->formatBytes($info['threshold']),
-            );
-        }
-
-        $body = implode(PHP_EOL, $lines);
-        $this->sendMail($config, 'on_low_disk_space', $subject, $body, $logger);
-        $this->sendSlack($config, 'on_low_disk_space', $subject, $body, $logger);
-    }
-
-    private function sendMail(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
-    {
-        $recipients = array_filter((array) ($config->notifications['mail'][$event] ?? []));
-        if ($recipients === []) {
-            return;
-        }
-
-        try {
-            Craft::$app->getMailer()
-                ->compose()
-                ->setTo($recipients)
-                ->setSubject($subject)
-                ->setTextBody($body)
-                ->send();
-
-            $logger->info("mail notification sent ({$event})", ['to' => $recipients]);
-        } catch (Throwable $e) {
-            $logger->warning("Failed to send mail notification ({$event})", ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Send a one-off test message to the configured Slack webhook, ignoring per-event flags.
-     * Returns null on success, or an error message string on failure / when Slack isn't configured.
-     */
-    public function sendTestSlack(BackupConfig $config): ?string
-    {
-        $slack = (array) ($config->notifications['slack'] ?? []);
-        $webhookUrl = $slack['webhook_url'] ?? null;
-        if (!is_string($webhookUrl) || $webhookUrl === '') {
-            return 'Slack webhook URL is not configured.';
-        }
-
-        $siteName = Craft::$app->getSystemName() ?: $config->name;
-        $payload = $this->buildSlackPayload(
-            $slack,
-            "[Craft Backup] Test notification from {$siteName}",
-            "If you can read this, Slack notifications are wired up correctly.",
-        );
-
-        try {
-            Craft::createGuzzleClient()->post($webhookUrl, [
-                'json' => $payload,
-                'timeout' => 10,
-            ]);
-            return null;
-        } catch (Throwable $e) {
-            return $e->getMessage();
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $slack
-     * @return array<string, mixed>
-     */
-    private function buildSlackPayload(array $slack, string $subject, string $body): array
-    {
-        $payload = ['text' => "*{$subject}*\n```\n{$body}\n```"];
-        if (!empty($slack['channel'])) {
-            $payload['channel'] = $slack['channel'];
-        }
-        if (!empty($slack['username'])) {
-            $payload['username'] = $slack['username'];
-        }
-        if (!empty($slack['icon'])) {
-            $icon = $slack['icon'];
-            $payload[str_starts_with($icon, ':') ? 'icon_emoji' : 'icon_url'] = $icon;
-        }
-        return $payload;
-    }
-
-    private function sendSlack(BackupConfig $config, string $event, string $subject, string $body, BackupLogger $logger): void
-    {
-        $slack = (array) ($config->notifications['slack'] ?? []);
-        $webhookUrl = $slack['webhook_url'] ?? null;
-        if (!is_string($webhookUrl) || $webhookUrl === '') {
-            return;
-        }
-        if (!($slack[$event] ?? false)) {
-            return;
-        }
-
-        $payload = $this->buildSlackPayload($slack, $subject, $body);
-
-        try {
-            Craft::createGuzzleClient()->post($webhookUrl, [
-                'json' => $payload,
-                'timeout' => 10,
-            ]);
-
-            $logger->info("slack notification sent ({$event})");
-        } catch (Throwable $e) {
-            $logger->warning("Failed to send slack notification ({$event})", ['error' => $e->getMessage()]);
-        }
-    }
-
-    private function formatBytes(int $bytes): string
-    {
-        if ($bytes >= 1024 ** 3) {
-            return number_format($bytes / (1024 ** 3), 2) . ' GB';
-        }
-        if ($bytes >= 1024 ** 2) {
-            return number_format($bytes / (1024 ** 2), 2) . ' MB';
-        }
-        if ($bytes >= 1024) {
-            return number_format($bytes / 1024, 1) . ' KB';
-        }
-        return $bytes . ' B';
     }
 }

@@ -14,11 +14,12 @@
                     {% if channel.detail %}
                         <span class="cb-channel__detail">{{ channel.detail }}</span>
                     {% endif %}
-                    {% if channel.hasTestAction and channel.id == 'slack' %}
+                    {% if channel.hasTestAction %}
                         <a href="#"
                            class="cb-channel__test"
-                           data-cb-test-slack
-                           data-cb-action-url="{{ actionUrl('backup/backup/test-slack') }}"
+                           data-cb-test-notification
+                           data-cb-channel="{{ channel.id }}"
+                           data-cb-action-url="{{ actionUrl('backup/backup/test-notification') }}"
                            data-cb-label-default="{{ 'Send test notification'|t('backup') }}"
                            data-cb-label-sending="{{ 'Sending…'|t('backup') }}"
                            data-cb-label-sent="{{ 'Test sent ✓'|t('backup') }}"

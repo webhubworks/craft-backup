@@ -9,7 +9,11 @@ use Throwable;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\Plugin;
 use webhubworks\backup\services\BackupGrouper;
+use webhubworks\backup\services\BackupLogger;
 use webhubworks\backup\services\Bytes;
+use webhubworks\backup\services\notifications\MailChannel;
+use webhubworks\backup\services\notifications\Notification;
+use webhubworks\backup\services\notifications\Notifier;
 use webhubworks\backup\utilities\BackupUtility;
 use yii\web\BadRequestHttpException;
 use yii\web\NotFoundHttpException;
@@ -137,7 +141,7 @@ class BackupController extends Controller
         });
     }
 
-    public function actionTestSlack(): Response
+    public function actionTestNotification(): Response
     {
         $this->requirePermission('utility:' . BackupUtility::id());
         $this->requirePostRequest();
@@ -149,7 +153,8 @@ class BackupController extends Controller
             return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
         }
 
-        $error = Plugin::getInstance()->runner->sendTestSlack($config);
+        $channel = (string) $this->request->getRequiredBodyParam('channel');
+        $error = (new Notifier($config, new BackupLogger()))->sendTest($channel);
 
         return $this->asJson($error === null ? ['success' => true] : ['success' => false, 'error' => $error]);
     }
@@ -211,49 +216,31 @@ class BackupController extends Controller
      */
     private static function collectNotificationChannels(BackupConfig $config): array
     {
-        $eventKeys = ['on_failure', 'on_success', 'on_low_disk_space'];
         $eventLabels = [
-            'on_failure' => Craft::t('backup', 'On failure'),
-            'on_success' => Craft::t('backup', 'On success'),
-            'on_low_disk_space' => Craft::t('backup', 'On low disk space'),
+            Notification::EVENT_FAILURE => Craft::t('backup', 'On failure'),
+            Notification::EVENT_SUCCESS => Craft::t('backup', 'On success'),
+            Notification::EVENT_LOW_DISK_SPACE => Craft::t('backup', 'On low disk space'),
         ];
 
         $channels = [];
-
-        $mail = (array) ($config->notifications['mail'] ?? []);
-        $mailEvents = [];
-        $mailHasAny = false;
-        foreach ($eventKeys as $key) {
-            $recipients = array_values(array_filter(array_map('strval', (array) ($mail[$key] ?? []))));
-            $mailEvents[] = ['event' => $key, 'label' => $eventLabels[$key], 'recipients' => $recipients];
-            if ($recipients !== []) {
-                $mailHasAny = true;
+        foreach ((new Notifier($config, new BackupLogger()))->channels() as $id => $channel) {
+            if (!$channel->isConfigured()) {
+                continue;
             }
-        }
-        if ($mailHasAny) {
-            $channels[] = [
-                'id' => 'mail',
-                'name' => Craft::t('backup', 'Mail'),
-                'detail' => null,
-                'events' => $mailEvents,
-                'hasTestAction' => false,
-            ];
-        }
 
-        $slack = (array) ($config->notifications['slack'] ?? []);
-        $webhookUrl = $slack['webhook_url'] ?? null;
-        if (is_string($webhookUrl) && $webhookUrl !== '') {
-            $slackEvents = [];
-            foreach ($eventKeys as $key) {
-                $slackEvents[] = ['event' => $key, 'label' => $eventLabels[$key], 'enabled' => (bool) ($slack[$key] ?? false)];
+            $events = [];
+            foreach ($eventLabels as $event => $label) {
+                $events[] = $channel instanceof MailChannel
+                    ? ['event' => $event, 'label' => $label, 'recipients' => $channel->recipients($event)]
+                    : ['event' => $event, 'label' => $label, 'enabled' => $channel->wants($event)];
             }
-            $detail = !empty($slack['channel']) ? (string) $slack['channel'] : null;
+
             $channels[] = [
-                'id' => 'slack',
-                'name' => Craft::t('backup', 'Slack'),
-                'detail' => $detail,
-                'events' => $slackEvents,
-                'hasTestAction' => true,
+                'id' => $id,
+                'name' => $channel->label(),
+                'detail' => $channel->detail(),
+                'events' => $events,
+                'hasTestAction' => $channel->supportsTest(),
             ];
         }
 

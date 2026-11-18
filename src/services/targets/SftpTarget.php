@@ -34,11 +34,17 @@ class SftpTarget implements TargetInterface
                 port: (int) ($def['port'] ?? 22),
                 useAgent: false,
                 timeout: (int) ($def['timeout'] ?? 30),
+                hostFingerprint: ($def['host_fingerprint'] ?? null) ?: null,
             ),
             (string) ($def['root'] ?? '/backups'),
         );
 
         $this->fs = new Filesystem($adapter);
+    }
+
+    public function hasHostFingerprint(): bool
+    {
+        return !empty($this->def['host_fingerprint']);
     }
 
     public function upload(string $localPath, string $remoteFilename, BackupConfig $config): void
