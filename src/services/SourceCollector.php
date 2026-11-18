@@ -23,10 +23,11 @@ class SourceCollector
         $excludes = $this->normalizeExcludes($config->excludePaths);
 
         foreach ($config->includePaths as $raw) {
-            $resolved = Craft::getAlias($raw);
-            if (!is_string($resolved) || $resolved === '') {
+            // Raw `source.include` values from the config file.
+            if (!is_string($raw) || $raw === '') {
                 continue;
             }
+            $resolved = Craft::getAlias($raw);
 
             if (is_file($resolved)) {
                 if (!$this->isExcluded($resolved, $excludes)) {
@@ -73,7 +74,7 @@ class SourceCollector
     }
 
     /**
-     * @param string[] $patterns
+     * @param array<mixed> $patterns Raw `source.exclude` values from the config file.
      * @return array{paths: string[], names: string[]}
      */
     private function normalizeExcludes(array $patterns): array
@@ -86,10 +87,9 @@ class SourceCollector
                 continue;
             }
 
-            $resolved = Craft::getAlias($pattern);
-            $value = is_string($resolved) ? $resolved : $pattern;
+            $value = Craft::getAlias($pattern);
 
-            if (str_contains($value, DIRECTORY_SEPARATOR) || str_starts_with($value, '@')) {
+            if (str_contains($value, DIRECTORY_SEPARATOR)) {
                 $paths[] = rtrim($value, DIRECTORY_SEPARATOR);
             } else {
                 $names[] = $value;

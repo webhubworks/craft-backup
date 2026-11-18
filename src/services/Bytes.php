@@ -31,7 +31,7 @@ final class Bytes
             'kb' => 1024,
             'mb' => 1024 ** 2,
             'gb' => 1024 ** 3,
-            'tb' => 1024 ** 4,
+            default => 1024 ** 4, // 'tb', the only unit the regex leaves
         };
 
         return (int) ($value * $multiplier);
@@ -76,6 +76,6 @@ final class Bytes
             return (int) round($totalBytes * $threshold['percent'] / 100);
         }
 
-        return $threshold['bytes'] ?? 0;
+        return $threshold['bytes'];
     }
 }

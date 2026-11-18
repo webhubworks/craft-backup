@@ -217,7 +217,7 @@ class BackupMonitor extends Component
             's' => $value,
             'm' => $value * 60,
             'h' => $value * 3600,
-            'd' => $value * 86400,
+            default => $value * 86400, // 'd', the only unit the regex leaves
         };
     }
 

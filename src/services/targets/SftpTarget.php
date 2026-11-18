@@ -2,6 +2,7 @@
 
 namespace webhubworks\backup\services\targets;
 
+use League\Flysystem\FileAttributes;
 use League\Flysystem\Filesystem;
 use League\Flysystem\PhpseclibV3\SftpAdapter;
 use League\Flysystem\PhpseclibV3\SftpConnectionProvider;
@@ -73,13 +74,13 @@ class SftpTarget implements TargetInterface
     {
         $out = [];
         foreach ($this->fs->listContents('/', false) as $item) {
-            if (!$item->isFile() || !BackupGrouper::isArchiveOf(basename($item->path()), $this->backupName)) {
+            if (!$item instanceof FileAttributes || !BackupGrouper::isArchiveOf(basename($item->path()), $this->backupName)) {
                 continue;
             }
             $out[] = [
                 'path' => $item->path(),
-                'size' => (int) ($item->fileSize() ?? 0),
-                'modified' => (int) ($item->lastModified() ?? 0),
+                'size' => $item->fileSize() ?? 0,
+                'modified' => $item->lastModified() ?? 0,
                 'encrypted' => null,
             ];
         }

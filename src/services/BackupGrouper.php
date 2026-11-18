@@ -69,8 +69,8 @@ class BackupGrouper
         foreach ($loners as $f) {
             $groups[] = [
                 'paths' => [$f['path']],
-                'size' => (int) ($f['size'] ?? 0),
-                'modified' => (int) ($f['modified'] ?? 0),
+                'size' => $f['size'],
+                'modified' => $f['modified'],
             ];
         }
         return $groups;

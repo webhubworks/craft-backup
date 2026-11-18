@@ -16,9 +16,6 @@ class LocalTarget implements TargetInterface
     public function __construct(array $def, private readonly string $backupName)
     {
         $root = Craft::getAlias($def['root'] ?? '@storage/backups');
-        if (!is_string($root)) {
-            throw new BackupFailedException("Invalid local target root: '{$def['root']}'.");
-        }
         FileHelper::createDirectory($root);
         $this->root = rtrim($root, DIRECTORY_SEPARATOR);
     }

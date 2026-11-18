@@ -182,15 +182,16 @@ class BackupRunner extends Component
 
     private function stageFiles(BackupConfig $config, string $stagingDir, BackupLogger $logger): void
     {
-        $root = Craft::getAlias('@root') ?: '';
+        // Trailing separator, so /var/www doesn't match /var/www2.
+        $rootPrefix = Craft::getAlias('@root') . DIRECTORY_SEPARATOR;
         $filesDir = $stagingDir . DIRECTORY_SEPARATOR . 'files';
         FileHelper::createDirectory($filesDir);
 
         $count = 0;
         foreach ((new SourceCollector())->collect($config) as $file) {
             $source = $file->getPathname();
-            $relative = is_string($root) && str_starts_with($source, $root)
-                ? ltrim(substr($source, strlen($root)), DIRECTORY_SEPARATOR)
+            $relative = str_starts_with($source, $rootPrefix)
+                ? substr($source, strlen($rootPrefix))
                 : ltrim($source, DIRECTORY_SEPARATOR);
 
             $dest = $filesDir . DIRECTORY_SEPARATOR . $relative;

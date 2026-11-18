@@ -81,9 +81,6 @@ class BackupController extends Controller
 
         $rootAlias = $def['root'] ?? '@storage/backups';
         $root = Craft::getAlias($rootAlias);
-        if (!is_string($root)) {
-            throw new BadRequestHttpException("Invalid local target root.");
-        }
 
         $rootReal = realpath($root);
         $pathReal = realpath($root . DIRECTORY_SEPARATOR . $name);
