@@ -11,6 +11,16 @@
             <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <!-- ddev's database; CI overrides these with real environment variables. -->
+        <env name="CRAFT_DB_DRIVER" value="mysql"/>
+        <env name="CRAFT_DB_SERVER" value="db"/>
+        <env name="CRAFT_DB_PORT" value="3306"/>
+        <env name="CRAFT_DB_DATABASE" value="db"/>
+        <env name="CRAFT_DB_USER" value="db"/>
+        <env name="CRAFT_DB_PASSWORD" value="db"/>
+        <env name="CRAFT_SECURITY_KEY" value="craft-backup-tests-only"/>
+    </php>
     <source>
         <include>
             <directory>src</directory>
