@@ -49,7 +49,8 @@ final class DiscordChannel extends HttpChannel
             'description' => mb_substr($notification->intro, 0, self::DESCRIPTION_LIMIT),
             'color' => self::COLORS[$notification->event],
             'fields' => $this->fields($notification),
-            'footer' => ['text' => 'Craft Backup'],
+            // The bot name already says Craft Backup; the site tells channels shared by several sites apart.
+            'footer' => ['text' => $notification->siteName],
             'timestamp' => gmdate('c'),
         ];
 
@@ -92,12 +93,22 @@ final class DiscordChannel extends HttpChannel
             $targetLines[] = ($status === 'ok' ? '✅ ' : '❌ ') . "{$name}: {$status}";
         }
 
+        // Target errors already show next to their target, so list only the rest.
+        $errors = array_filter($result->errors, function(string $error) use ($result) {
+            foreach (array_keys($result->targetStatuses) as $name) {
+                if (str_starts_with($error, "target {$name}: ")) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
         return array_values(array_filter([
             ['name' => 'Run ID', 'value' => $result->runId, 'inline' => true],
             ['name' => 'Duration', 'value' => sprintf('%.1fs', $result->durationSeconds), 'inline' => true],
             ['name' => 'Size', 'value' => Bytes::format($result->archiveBytes), 'inline' => true],
             $this->field('Targets', $targetLines ?: ['(none reached)']),
-            $this->field('Errors', $result->errors),
+            $this->field('Errors', array_values($errors)),
         ]));
     }
 

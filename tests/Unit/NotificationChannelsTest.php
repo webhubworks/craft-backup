@@ -31,8 +31,16 @@ it('builds a red Discord embed with the run facts', function() {
 
     expect($embed['title'])->toBe('❌ Failure on Example')
         ->and($embed['color'])->toBe(0xC62828)
-        ->and(array_column($embed['fields'], 'name'))->toBe(['Run ID', 'Duration', 'Size', 'Targets', 'Errors'])
-        ->and($embed['fields'][3]['value'])->toBe("✅ local: ok\n❌ offsite: failed: Connection refused");
+        ->and(array_column($embed['fields'], 'name'))->toBe(['Run ID', 'Duration', 'Size', 'Targets'])
+        ->and($embed['fields'][3]['value'])->toBe("✅ local: ok\n❌ offsite: failed: Connection refused")
+        ->and($embed['footer']['text'])->toBe('Example');
+});
+
+it('lists only errors that are not already shown next to a target', function() {
+    $fields = (new DiscordChannel(['webhook_url' => 'https://discord.test/hook']))
+        ->payload(failedRun(['target offsite: Connection refused', 'Database dump failed: mysqldump not found']))['embeds'][0]['fields'];
+
+    expect(end($fields))->toBe(['name' => 'Errors', 'value' => 'Database dump failed: mysqldump not found', 'inline' => false]);
 });
 
 it('cuts long Discord fields off with a count of the rest', function() {
