@@ -147,6 +147,11 @@ final class BackupConfig
             throw new InvalidArgumentException('Encryption is enabled but no key was provided.');
         }
 
+        // Checked here so a bad key fails before the database dump, not after it.
+        if ($this->encryptionEnabled && strlen((string) base64_decode((string) $this->encryptionKey, true)) !== 32) {
+            throw new InvalidArgumentException('encryption.key must be base64-encoded 32 bytes.');
+        }
+
         if (empty($this->targets)) {
             throw new InvalidArgumentException('At least one backup target must be configured.');
         }

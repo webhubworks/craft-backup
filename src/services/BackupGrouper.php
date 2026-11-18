@@ -28,6 +28,19 @@ class BackupGrouper
     }
 
     /**
+     * Whether a filename is an archive this plugin wrote for the given backup
+     * name. Targets list only these, so retention and the monitor never touch
+     * another site's archives in a shared root or Craft's own `db/backup` files.
+     */
+    public static function isArchiveOf(string $filename, string $name): bool
+    {
+        return (bool) preg_match(
+            '/^' . preg_quote($name, '/') . '-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-[a-f0-9]{8}(?:-(?:db|files))?\.(zip|tar\.gz|tar\.gz\.enc)$/',
+            $filename,
+        );
+    }
+
+    /**
      * @param array<int, array{path:string, size:int, modified:int, encrypted?:?bool}> $listing
      * @return list<array{paths: list<string>, size: int, modified: int}>
      */

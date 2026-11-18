@@ -5,15 +5,17 @@ namespace webhubworks\backup\services\targets;
 use League\Flysystem\Filesystem;
 use League\Flysystem\PhpseclibV3\SftpAdapter;
 use League\Flysystem\PhpseclibV3\SftpConnectionProvider;
+use Throwable;
 use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
+use webhubworks\backup\services\BackupGrouper;
 use webhubworks\backup\services\Throttler;
 
 class SftpTarget implements TargetInterface
 {
     private readonly Filesystem $fs;
 
-    public function __construct(private readonly array $def)
+    public function __construct(private readonly array $def, private readonly string $backupName)
     {
         foreach (['host', 'username'] as $required) {
             if (empty($def[$required])) {
@@ -49,8 +51,17 @@ class SftpTarget implements TargetInterface
             (new Throttler())->throttle($stream, $config->throttleBytesPerSecond);
         }
 
+        // Write under a name list() ignores, so an interrupted upload never counts as a backup.
+        $partial = $remoteFilename . '.part';
         try {
-            $this->fs->writeStream($remoteFilename, $stream);
+            $this->fs->writeStream($partial, $stream);
+            $this->fs->move($partial, $remoteFilename);
+        } catch (Throwable $e) {
+            try {
+                $this->fs->delete($partial);
+            } catch (Throwable) {
+            }
+            throw $e;
         } finally {
             if (is_resource($stream)) {
                 fclose($stream);
@@ -62,7 +73,7 @@ class SftpTarget implements TargetInterface
     {
         $out = [];
         foreach ($this->fs->listContents('/', false) as $item) {
-            if (!$item->isFile() || !$this->isBackupArchive(basename($item->path()))) {
+            if (!$item->isFile() || !BackupGrouper::isArchiveOf(basename($item->path()), $this->backupName)) {
                 continue;
             }
             $out[] = [
@@ -73,16 +84,6 @@ class SftpTarget implements TargetInterface
             ];
         }
         return $out;
-    }
-
-    private function isBackupArchive(string $filename): bool
-    {
-        foreach (['.zip', '.tar.gz', '.tar.gz.enc'] as $ext) {
-            if (str_ends_with($filename, $ext)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public function delete(string $path): void

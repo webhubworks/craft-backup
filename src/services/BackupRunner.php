@@ -22,15 +22,19 @@ class BackupRunner extends Component
     public function run(BackupConfig $config, array $flags = []): BackupResult
     {
         $runId = bin2hex(random_bytes(4));
+        $dryRun = (bool) ($flags['dry_run'] ?? false);
         $startedAt = microtime(true);
 
         $logger = $this->logger($runId);
         $logger->info('Backup run starting', [
-            'dry_run' => (bool) ($flags['dry_run'] ?? false),
+            'dry_run' => $dryRun,
             'split' => $config->splitDbAndFiles,
         ]);
 
-        $stagingDir = $this->makeStagingDir($config->name, $runId);
+        // Archives are built inside $runDir, so removing it also removes partial or plaintext leftovers.
+        $runDir = $this->makeRunDir($config->name, $runId);
+        $stagingDir = $runDir . DIRECTORY_SEPARATOR . 'staging';
+        FileHelper::createDirectory($stagingDir);
         $archivePaths = [];
         $archiveBytes = 0;
         $targetStatuses = [];
@@ -47,14 +51,14 @@ class BackupRunner extends Component
                     FileHelper::createDirectory($dbStaging);
                     $dumps = (new DbDumper())->dump($config->databases, $dbStaging);
                     $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
-                    $archivePaths[] = $this->finishArchive($config, $runId, $dbStaging, dirname($stagingDir), $logger, 'db');
+                    $archivePaths[] = $this->finishArchive($config, $runId, $dbStaging, $runDir, $logger, 'db');
                 }
 
                 if (!$onlyDb) {
                     $filesStaging = $stagingDir . DIRECTORY_SEPARATOR . 'files-staging';
                     FileHelper::createDirectory($filesStaging);
                     $this->stageFiles($config, $filesStaging, $logger);
-                    $archivePaths[] = $this->finishArchive($config, $runId, $filesStaging, dirname($stagingDir), $logger, 'files');
+                    $archivePaths[] = $this->finishArchive($config, $runId, $filesStaging, $runDir, $logger, 'files');
                 }
             } else {
                 if (!$onlyFiles) {
@@ -66,14 +70,14 @@ class BackupRunner extends Component
                     $this->stageFiles($config, $stagingDir, $logger);
                 }
 
-                $archivePaths[] = $this->finishArchive($config, $runId, $stagingDir, dirname($stagingDir), $logger, null);
+                $archivePaths[] = $this->finishArchive($config, $runId, $stagingDir, $runDir, $logger, null);
             }
 
             foreach ($archivePaths as $path) {
                 $archiveBytes += (int) filesize($path);
             }
 
-            if ($flags['dry_run'] ?? false) {
+            if ($dryRun) {
                 $logger->info('Dry run: skipping upload and cleanup', ['archives' => $archivePaths]);
                 return $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors);
             }
@@ -101,6 +105,10 @@ class BackupRunner extends Component
             if (!($flags['disable_cleanup'] ?? false)) {
                 $policy = new RetentionPolicy();
                 foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
+                    // Pruning after a failed upload could delete good backups while the new one is missing.
+                    if (($targetStatuses[$name] ?? null) !== 'ok') {
+                        continue;
+                    }
                     try {
                         $deleted = $policy->apply($target, $config->retention);
                         $logger->info("Pruned {$deleted} old backup(s) on {$name}");
@@ -113,19 +121,13 @@ class BackupRunner extends Component
             $errors[] = $e->getMessage();
             $logger->error('Backup run failed', ['error' => $e->getMessage()]);
         } finally {
-            FileHelper::removeDirectory($stagingDir);
-            if (!($flags['dry_run'] ?? false)) {
-                foreach ($archivePaths as $path) {
-                    if (is_file($path)) {
-                        @unlink($path);
-                    }
-                }
-            }
+            // Dry runs keep their archives for inspection.
+            FileHelper::removeDirectory($dryRun ? $stagingDir : $runDir);
         }
 
         $result = $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, $lowDiskTargets);
 
-        if (!($flags['dry_run'] ?? false)) {
+        if (!$dryRun) {
             (new RunStateStore())->record($result);
             $this->notify($config, $result, $logger);
             $this->notifyLowDisk($config, $result, $logger);
@@ -246,20 +248,20 @@ class BackupRunner extends Component
             if ($onlyTo !== null && $onlyTo !== $name) {
                 continue;
             }
-            yield $name => $this->buildTarget($def);
+            yield $name => $this->buildTarget($def, $config->name);
         }
     }
 
-    private function buildTarget(array $def): TargetInterface
+    private function buildTarget(array $def, string $name): TargetInterface
     {
         return match ($def['driver'] ?? null) {
-            'local' => new LocalTarget($def),
-            'sftp' => new SftpTarget($def),
+            'local' => new LocalTarget($def, $name),
+            'sftp' => new SftpTarget($def, $name),
             default => throw new BackupFailedException("Unknown target driver '{$def['driver']}'."),
         };
     }
 
-    private function makeStagingDir(string $name, string $runId): string
+    private function makeRunDir(string $name, string $runId): string
     {
         $base = Craft::$app->getPath()->getTempPath() . "/craft-backup/{$name}-{$runId}";
         FileHelper::createDirectory($base);

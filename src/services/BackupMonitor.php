@@ -109,7 +109,7 @@ class BackupMonitor extends Component
 
         // 1. Target is reachable
         try {
-            $target = $this->buildTarget($config->targets[$targetName]);
+            $target = $this->buildTarget($config->targets[$targetName], $config->name);
             $files = $target->list();
             $groups = BackupGrouper::group($files);
             $items[] = $this->item('target_reachable', $reachableLabel, 'ok');
@@ -241,11 +241,11 @@ class BackupMonitor extends Component
         return $h > 0 ? "{$d}d {$h}h" : "{$d}d";
     }
 
-    private function buildTarget(array $def): TargetInterface
+    private function buildTarget(array $def, string $name): TargetInterface
     {
         return match ($def['driver'] ?? null) {
-            'local' => new LocalTarget($def),
-            'sftp' => new SftpTarget($def),
+            'local' => new LocalTarget($def, $name),
+            'sftp' => new SftpTarget($def, $name),
             default => throw new BackupFailedException("Unknown target driver '{$def['driver']}'."),
         };
     }

@@ -203,10 +203,11 @@ return [
          *   keep_yearly_for_years   Then one per calendar year for N more
          *                           years.
          *
-         * Defaults below give ~2.5 years of history: every run for the last
-         * week, one per day for the next ~2 weeks, one per week for the 2
-         * months after that, one per month for the following 4 months, and
-         * finally one per year for 2 years. Set any bucket to 0 to disable it.
+         * Each range starts where the newer one ends. The defaults below reach
+         * back ~2.5 years: every run for the last week, one per day for the
+         * next ~2 weeks, one per week for the 2 months after that, one per
+         * month for the following 4 months, and finally the newest run of each
+         * calendar year for 2 years. Set any bucket to 0 to disable it.
          *
          *   delete_oldest_backups_when_using_more_megabytes_than
          *                           Optional hard size cap, in megabytes,

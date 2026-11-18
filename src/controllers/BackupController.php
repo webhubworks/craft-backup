@@ -8,7 +8,9 @@ use craft\web\View;
 use Throwable;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\Plugin;
+use webhubworks\backup\services\BackupGrouper;
 use webhubworks\backup\services\Bytes;
+use webhubworks\backup\utilities\BackupUtility;
 use yii\web\BadRequestHttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -72,7 +74,7 @@ class BackupController extends Controller
 
         if (str_contains($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")
             || $name === '' || $name[0] === '.'
-            || !preg_match('/\.(zip|tar\.gz|tar\.gz\.enc)$/', $name)
+            || !BackupGrouper::isArchiveOf($name, $config->name)
         ) {
             throw new BadRequestHttpException("Invalid backup filename: '{$name}'.");
         }
@@ -140,7 +142,7 @@ class BackupController extends Controller
 
     public function actionTestSlack(): Response
     {
-        $this->requirePermission('accessCp');
+        $this->requirePermission('utility:' . BackupUtility::id());
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
@@ -185,7 +187,7 @@ class BackupController extends Controller
      */
     private function renderCard(string $template, callable $collect): Response
     {
-        $this->requirePermission('accessCp');
+        $this->requirePermission('utility:' . BackupUtility::id());
         $this->requireAcceptsJson();
 
         try {

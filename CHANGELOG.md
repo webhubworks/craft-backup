@@ -1,5 +1,16 @@
 # Release Notes for Craft Backup
 
+## 2.3.5 - 2026-11-18
+
+> **Heads-up:** Retention now keeps more backups than before, so targets use more disk after the update. If you rely on `delete_oldest_backups_when_using_more_megabytes_than`, check that the cap still fits.
+
+### Fixed
+- Retention kept about 11 months of history with the default settings instead of the documented ~2.5 years. Each range now starts where the newer one ends: daily after `keep_all_for_days`, weekly after daily, then monthly and yearly. The newest backup is never deleted, even when it is older than every range.
+- Retention, `backup/list`, `backup/monitor`, and the Backups utility only consider archives whose filename starts with the configured `name`. Before, sites sharing a target root pruned each other's backups and counted them toward their own health checks, and the local target could prune `.zip` files written by Craft's own `db/backup --zip`. Sites that share a root need different `name` values. After changing `name`, archives written under the old name are no longer listed, pruned, or monitored.
+- Uploads are written to a `.part` file and renamed once complete, so an interrupted upload no longer leaves a truncated archive that counts as the newest backup. Retention now skips targets whose upload failed in the same run.
+- An encryption or archiving error no longer leaves an unencrypted archive in `storage/runtime/temp/craft-backup/`. Archives are built inside the per-run folder, which is removed after every run. An `encryption.key` that is not base64-encoded 32 bytes now fails config validation before the database dump starts.
+- The Backups utility card endpoints and the Slack test action now require the Backups utility permission instead of control panel access only.
+
 ## 2.3.4 - 2026-05-08
 
 ### Fixed

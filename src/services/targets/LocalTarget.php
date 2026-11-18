@@ -6,13 +6,14 @@ use Craft;
 use craft\helpers\FileHelper;
 use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
+use webhubworks\backup\services\BackupGrouper;
 use ZipArchive;
 
 class LocalTarget implements TargetInterface
 {
     private readonly string $root;
 
-    public function __construct(array $def)
+    public function __construct(array $def, private readonly string $backupName)
     {
         $root = Craft::getAlias($def['root'] ?? '@storage/backups');
         if (!is_string($root)) {
@@ -24,8 +25,11 @@ class LocalTarget implements TargetInterface
 
     public function upload(string $localPath, string $remoteFilename, BackupConfig $config): void
     {
+        // Write under a name list() ignores, so a half-written copy never counts as a backup.
         $destination = $this->root . DIRECTORY_SEPARATOR . $remoteFilename;
-        if (!copy($localPath, $destination)) {
+        $partial = $destination . '.part';
+        if (!@copy($localPath, $partial) || !@rename($partial, $destination)) {
+            @unlink($partial);
             throw new BackupFailedException("Could not copy backup to {$destination}.");
         }
     }
@@ -42,7 +46,7 @@ class LocalTarget implements TargetInterface
                 continue;
             }
             $path = $this->root . DIRECTORY_SEPARATOR . $name;
-            if (!is_file($path) || !$this->isBackupArchive($name)) {
+            if (!is_file($path) || !BackupGrouper::isArchiveOf($name, $this->backupName)) {
                 continue;
             }
             $entries[] = [
@@ -53,16 +57,6 @@ class LocalTarget implements TargetInterface
             ];
         }
         return $entries;
-    }
-
-    private function isBackupArchive(string $filename): bool
-    {
-        foreach (['.zip', '.tar.gz', '.tar.gz.enc'] as $ext) {
-            if (str_ends_with($filename, $ext)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private function isZipPasswordProtected(string $path): ?bool

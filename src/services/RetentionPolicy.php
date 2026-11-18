@@ -10,8 +10,10 @@ use webhubworks\backup\services\targets\TargetInterface;
  *
  * Given a list of remote backups with timestamps parsed from filenames, decide
  * which to delete. Nothing inside "keep_all_for_days" is ever pruned. Older
- * backups are bucketed by day/week/month/year and the newest per bucket is kept
- * up to the configured count.
+ * backups fall into consecutive date ranges (daily, then weekly, monthly, and
+ * yearly), and the newest backup per day, week, month, or year of its range is
+ * kept. Backups older than the yearly range are deleted, except the newest
+ * backup overall.
  *
  * After GFS pruning, an optional size cap
  * ("delete_oldest_backups_when_using_more_megabytes_than") drops the oldest
@@ -31,48 +33,47 @@ class RetentionPolicy
         $now = new DateTimeImmutable();
         $keep = [];
 
-        $keepAllUntil = $now->modify('-' . (int) ($retention['keep_all_for_days'] ?? 7) . ' days');
+        $keepAllFrom = $now->modify('-' . (int) ($retention['keep_all_for_days'] ?? 7) . ' days');
 
-        $dailyLimit = (int) ($retention['keep_daily_for_days'] ?? 0);
-        $weeklyLimit = (int) ($retention['keep_weekly_for_weeks'] ?? 0);
-        $monthlyLimit = (int) ($retention['keep_monthly_for_months'] ?? 0);
-        $yearlyLimit = (int) ($retention['keep_yearly_for_years'] ?? 0);
+        // Each range starts where the newer one ends: daily after keep-all, weekly after daily, and so on.
+        $ranges = [];
+        $until = $keepAllFrom;
+        foreach ([
+            ['keep_daily_for_days', 'days', 'Y-m-d'],
+            ['keep_weekly_for_weeks', 'weeks', 'o-W'],
+            ['keep_monthly_for_months', 'months', 'Y-m'],
+            ['keep_yearly_for_years', 'years', 'Y'],
+        ] as [$setting, $unit, $bucketFormat]) {
+            $from = $until->modify('-' . (int) ($retention[$setting] ?? 0) . " {$unit}");
+            $ranges[] = [$from, $until, $bucketFormat];
+            $until = $from;
+        }
 
-        $seenDay = $seenWeek = $seenMonth = $seenYear = [];
-
+        // Groups are sorted newest first, so the first group seen per bucket is the one kept.
+        $seenBuckets = [];
         foreach ($groups as $i => $group) {
             $date = $group['date'];
 
-            if ($date >= $keepAllUntil) {
+            if ($date >= $keepAllFrom) {
                 $keep[$i] = true;
                 continue;
             }
 
-            $dayKey = $date->format('Y-m-d');
-            $weekKey = $date->format('o-W');
-            $monthKey = $date->format('Y-m');
-            $yearKey = $date->format('Y');
+            foreach ($ranges as $r => [$rangeFrom, $rangeUntil, $bucketFormat]) {
+                if ($date >= $rangeFrom && $date < $rangeUntil) {
+                    $bucket = $r . ':' . $date->format($bucketFormat);
+                    if (!isset($seenBuckets[$bucket])) {
+                        $seenBuckets[$bucket] = true;
+                        $keep[$i] = true;
+                    }
+                    break;
+                }
+            }
+        }
 
-            if (count($seenDay) < $dailyLimit && !isset($seenDay[$dayKey])) {
-                $seenDay[$dayKey] = true;
-                $keep[$i] = true;
-                continue;
-            }
-            if (count($seenWeek) < $weeklyLimit && !isset($seenWeek[$weekKey])) {
-                $seenWeek[$weekKey] = true;
-                $keep[$i] = true;
-                continue;
-            }
-            if (count($seenMonth) < $monthlyLimit && !isset($seenMonth[$monthKey])) {
-                $seenMonth[$monthKey] = true;
-                $keep[$i] = true;
-                continue;
-            }
-            if (count($seenYear) < $yearlyLimit && !isset($seenYear[$yearKey])) {
-                $seenYear[$yearKey] = true;
-                $keep[$i] = true;
-                continue;
-            }
+        // Never delete the newest backup, even when it is older than every range.
+        if ($groups !== []) {
+            $keep[0] = true;
         }
 
         $this->enforceSizeCap($groups, $keep, $retention['delete_oldest_backups_when_using_more_megabytes_than'] ?? null);
