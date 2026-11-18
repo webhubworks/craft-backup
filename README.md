@@ -227,6 +227,18 @@ php vendor/webhubworks/craft-backup/scripts/decrypt.php archive.tar.gz.enc archi
 
 Both formats, once extracted, produce a `db-db.sql` at the root plus a `files/` tree mirroring your configured `source.include` paths (relative to `@root`). Import the SQL with your DB's native tool (`mysql < db-db.sql`, `psql -f db-db.sql`, etc.) and drop the files back into place.
 
+## Development
+
+The repository ships a ddev project with a MySQL database, because the test suite boots Craft. Before you commit to `main` or tag a release, run all checks:
+
+```bash
+ddev start
+ddev composer install
+ddev composer check
+```
+
+`composer check` runs the coding standard (ECS), static analysis (PHPStan), and the Pest tests. On the first run, the tests install Craft into the ddev database.
+
 ## Changelog
 See the [changelog](CHANGELOG.md) for release history.
 
