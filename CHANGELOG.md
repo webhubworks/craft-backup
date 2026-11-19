@@ -1,9 +1,9 @@
 # Release Notes for Craft Backup
 
-## Unreleased
+## 2.4.0 - 2026-11-19
 
 ### Added
-- Discord notifications. Set `BACKUP_DISCORD_WEBHOOK_URL` to post an embed with a colored sidebar (green for success, red for failure, amber for low disk space), the run ID, duration, size, per-target results, and errors. The `notifications.discord` block takes `username`, `avatar_url`, and the same per-event toggles as Slack.
+- Discord notifications. Set `BACKUP_DISCORD_WEBHOOK_URL` to post an embed with a colored sidebar (green for success, red for failure, amber for low disk space), the run ID, duration, size, per-target results, and errors. Messages show the Craft Backup logo as avatar. The `notifications.discord` block takes `username`, `avatar_url`, and the same per-event toggles as Slack.
 - JSON webhook notifications. Set `BACKUP_WEBHOOK_URL` to receive a versioned JSON document (`"schema": 1`) for every enabled event. With `BACKUP_WEBHOOK_SECRET`, each request carries an `X-Craft-Backup-Signature` header with an HMAC-SHA256 of the body. See the README for the payload and how to verify the signature.
 - Discord and the webhook appear on the Notifications card, each with a "Send test notification" link.
 - Optional `host_fingerprint` for SFTP targets. When it's set, uploads fail if the server's host key doesn't match. When it's missing, every run logs a warning.

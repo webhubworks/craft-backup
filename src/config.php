@@ -293,7 +293,7 @@ return [
                 'webhook_url' => App::env('BACKUP_DISCORD_WEBHOOK_URL') ?: null,
                 // Display name and avatar image URL. Null uses the webhook's defaults.
                 'username' => 'Craft Backup',
-                'avatar_url' => null,
+                'avatar_url' => 'https://raw.githubusercontent.com/webhubworks/craft-backup/main/resources/avatar.png',
                 'on_failure' => true,
                 'on_success' => false,
                 'on_low_disk_space' => true,
