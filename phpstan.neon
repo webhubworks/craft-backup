@@ -5,3 +5,10 @@ parameters:
     level: 4
     paths:
         - src
+    ignoreErrors:
+        # The Craft 6 branches in src/services/sanitize/ run only on Craft 6 (Laravel), which isn't installed in this Craft 5 dev setup.
+        - message: '#(CraftCms\\Cms\\|Illuminate\\|Function (app|config) not found)#'
+          paths:
+              - src/services/sanitize/CraftBackups.php
+              - src/services/sanitize/CraftSchema.php
+              - src/services/sanitize/LaravelScratchDatabase.php

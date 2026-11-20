@@ -529,6 +529,52 @@
     color: #9ca3af;
 }
 
+.cb-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+    padding: 0 6px;
+    border-bottom: 0;
+    border-radius: 4px;
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.7;
+    vertical-align: middle;
+}
+
+.cb-kind--sanitized {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.cb-kind--craft {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.cb-kind__icon svg {
+    display: block;
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+.cb-kind.cb-tooltip::after {
+    left: 0;
+    transform: none;
+}
+
+.cb-kind.cb-tooltip::before {
+    left: 10px;
+    transform: none;
+}
+
+.cb-sanitize-button {
+    margin-left: 6px;
+}
+
 .cb-col-action {
     width: 1%;
     white-space: nowrap;

@@ -411,5 +411,67 @@ return [
             'x_send_file' => null,
             'x_send_file_uri_prefix' => null,
         ],
+
+        /**
+         * Sanitized copy: a database dump with personal data replaced by fake
+         * values and secrets removed, safe to hand to developers or load into
+         * staging. It never replaces a backup: don't restore production from it.
+         *
+         * Create one with `./craft backup/sanitize` or the "Sanitized copy"
+         * button in the Backups utility. Each target keeps only the newest
+         * sanitized copy; retention and health checks ignore it.
+         *
+         * How it works: the site database is dumped, restored into a scratch
+         * database on the same server (`<db>_sanitize_<runId>`), rewritten
+         * there, dumped again, and the scratch database is dropped. The live
+         * database is only read. The DB user needs the CREATE DATABASE and
+         * DROP DATABASE privileges.
+         *
+         * Built in, no config needed:
+         *   - users: email, username, names, password (see below), and the
+         *     last login IP. Users matching keep_users stay as they are.
+         *   - addresses: names, organization, street lines, postal code, and
+         *     coordinates.
+         *   - Emptied: search index, sessions, queue, tokens, two-factor
+         *     tables, and OAuth tokens. From Craft 5 on, also the Craft 4
+         *     content and matrixcontent_* tables the upgrade leaves behind.
+         *
+         * A rule is a Faker formatter name (https://fakerphp.org/formatters/)
+         * or a closure `fn (\Faker\Generator $faker, mixed $value, array $row)`
+         * returning the new value. Empty values are left alone.
+         *
+         * Not covered: plugin settings in the projectconfig table can hold API
+         * keys in plain text, and free text such as rich text bodies can still
+         * name people. Check both before you share a copy.
+         */
+        'sanitize' => [
+            // Target names from 'targets' that receive the copy. null = all targets.
+            'targets' => null,
+
+            'faker_locale' => 'de_DE',
+
+            // Every sanitized user gets this password, hashed at run time. null keeps the original hashes.
+            'password' => 'password',
+
+            // Users left as they are. Receives the users row as an array. Default: admins.
+            // 'keep_users' => fn (array $user) => (bool) $user['admin'],
+
+            // Tables whose rows are deleted (structure stays). Unprefixed names or glob patterns.
+            'empty_tables' => [
+                // 'formie_submissions',
+                // 'freeform_submissions*',
+            ],
+
+            // Custom fields by handle, across all element types (Craft 5 and later).
+            'fields' => [
+                // 'phone' => 'phoneNumber',
+                // 'notes' => fn (\Faker\Generator $faker) => $faker->sentence(),
+            ],
+
+            // Column rules for other tables. Unprefixed names.
+            'tables' => [
+                // 'commerce_orders' => ['email' => 'safeEmail'],
+            ],
+        ],
     ],
 ];

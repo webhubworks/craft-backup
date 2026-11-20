@@ -31,7 +31,7 @@ class LocalTarget implements TargetInterface
         }
     }
 
-    public function list(): array
+    public function list(string $kind = self::KIND_BACKUP): array
     {
         if (!is_dir($this->root)) {
             return [];
@@ -43,7 +43,7 @@ class LocalTarget implements TargetInterface
                 continue;
             }
             $path = $this->root . DIRECTORY_SEPARATOR . $name;
-            if (!is_file($path) || !BackupGrouper::isArchiveOf($name, $this->backupName)) {
+            if (!is_file($path) || BackupGrouper::kindOf($name, $this->backupName) !== $kind) {
                 continue;
             }
             $entries[] = [

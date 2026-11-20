@@ -2,6 +2,8 @@
 
 namespace webhubworks\backup\services;
 
+use webhubworks\backup\services\targets\TargetInterface;
+
 /**
  * Collapses a flat list of backup archives on a target into "logical backups":
  * the two halves of a split run (sharing a runId in the filename) become one
@@ -38,6 +40,28 @@ class BackupGrouper
             '/^' . preg_quote($name, '/') . '-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-[a-f0-9]{8}(?:-(?:db|files))?\.(zip|tar\.gz|tar\.gz\.enc)$/',
             $filename,
         );
+    }
+
+    /**
+     * Tells backups, sanitized copies, and Craft's own dumps apart. Sanitized
+     * copies use the archive naming with a `-sanitized` suffix; Craft's dumps
+     * look like `my-site--2026-11-20-140118--v5.12.1.sql.zip`. Only backups
+     * match isArchiveOf(), so retention and health checks never see the others.
+     *
+     * @return TargetInterface::KIND_*|null
+     */
+    public static function kindOf(string $filename, string $name): ?string
+    {
+        if (self::isArchiveOf($filename, $name)) {
+            return TargetInterface::KIND_BACKUP;
+        }
+        if (preg_match('/^' . preg_quote($name, '/') . '-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-[a-f0-9]{8}-sanitized\.(zip|tar\.gz|tar\.gz\.enc)$/', $filename)) {
+            return TargetInterface::KIND_SANITIZED;
+        }
+        if (preg_match('/^.+--\d{4}-\d{2}-\d{2}-\d{6}--v[0-9A-Za-z.\-]+\.(sql|dump)(\.zip)?$/', $filename)) {
+            return TargetInterface::KIND_CRAFT;
+        }
+        return null;
     }
 
     /**

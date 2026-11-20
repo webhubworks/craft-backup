@@ -20,9 +20,12 @@ final class FakeTarget implements TargetInterface
         $this->add($remoteFilename);
     }
 
-    public function list(): array
+    public function list(string $kind = self::KIND_BACKUP): array
     {
-        return array_values($this->files);
+        return array_values(array_filter(
+            $this->files,
+            fn(array $file) => str_contains($file['path'], '-sanitized.') === ($kind === self::KIND_SANITIZED),
+        ));
     }
 
     public function delete(string $path): void

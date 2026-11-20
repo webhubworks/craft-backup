@@ -48,6 +48,16 @@
                                         {% set tooLarge = showDownload and downloadMaxBytes is not null and backup.size > downloadMaxBytes %}
                                         <tr>
                                             <td class="cb-mono">
+                                                {% if backup.kind == 'sanitized' %}
+                                                    {% set kindLabel = 'Sanitized: personal data replaced, secrets removed. Not for restoring production.'|t('backup') %}
+                                                    <span class="cb-kind cb-kind--sanitized cb-tooltip" data-cb-tooltip="{{ kindLabel }}" aria-label="{{ kindLabel }}">
+                                                        {% if sanitizedIcon %}<span class="cb-kind__icon" aria-hidden="true">{{ sanitizedIcon|raw }}</span>{% endif %}
+                                                        {{ 'Sanitized'|t('backup') }}
+                                                    </span>
+                                                {% elseif backup.kind == 'craft' %}
+                                                    {% set kindLabel = 'Created by Craft’s own Backup button. Retention and health checks ignore it.'|t('backup') %}
+                                                    <span class="cb-kind cb-kind--craft cb-tooltip" data-cb-tooltip="{{ kindLabel }}" aria-label="{{ kindLabel }}">Craft</span>
+                                                {% endif %}
                                                 {{ backup.name }}
                                                 {% if backup.encrypted is same as(true) %}
                                                     <span class="cb-lock" title="{{ 'Password protected'|t('backup') }}" aria-label="{{ 'Password protected'|t('backup') }}">
@@ -69,6 +79,7 @@
                                                 <td class="cb-col-action">
                                                     {% if tooLarge %}
                                                         <span class="cb-download cb-download--disabled cb-tooltip cb-tooltip--end"
+                                                              {% if backup.kind == 'sanitized' %}data-cb-sanitized-too-large data-cb-modified="{{ backup.modified }}"{% endif %}
                                                               data-cb-tooltip="{{ 'Backup is {size}, exceeding the {limit} download limit. Fetch directly from the server: {path}'|t('backup', {
                                                                   size: formatBytes(backup.size),
                                                                   limit: formatBytes(downloadMaxBytes),
@@ -78,7 +89,8 @@
                                                             {{ 'Too large'|t('backup') }}
                                                         </span>
                                                     {% else %}
-                                                        <form method="post" accept-charset="UTF-8" class="cb-download-form">
+                                                        <form method="post" accept-charset="UTF-8" class="cb-download-form"
+                                                              {% if backup.kind == 'sanitized' %}data-cb-sanitized-download data-cb-modified="{{ backup.modified }}"{% endif %}>
                                                             {{ csrfInput() }}
                                                             {{ actionInput('backup/backup/download') }}
                                                             <input type="hidden" name="targetName" value="{{ targetName }}">
