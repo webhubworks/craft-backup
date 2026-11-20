@@ -54,6 +54,8 @@ class CraftBackups
      */
     public function createScratch(string $runId): ScratchDatabase
     {
+        $this->assertCommandsTargetConnection();
+
         try {
             return CraftSchema::isCraft6() ? $this->createLaravelScratch($runId) : $this->createYiiScratch($runId);
         } catch (BackupFailedException $e) {
@@ -99,6 +101,25 @@ class CraftBackups
         config(["database.connections.{$connectionName}" => [...$source->getConfig(), 'database' => $name]]);
 
         return new LaravelScratchDatabase($connectionName, $source, $name);
+    }
+
+    /**
+     * A custom backupCommand or restoreCommand string with a hardcoded
+     * database name would restore into the live database and dump it
+     * unsanitized. Only commands that use the {database} token follow the
+     * scratch connection.
+     */
+    private function assertCommandsTargetConnection(): void
+    {
+        $general = CraftSchema::isCraft6()
+            ? app(\CraftCms\Cms\Config\GeneralConfig::class)
+            : Craft::$app->getConfig()->getGeneral();
+
+        foreach (['backupCommand' => $general->backupCommand, 'restoreCommand' => $general->restoreCommand] as $setting => $command) {
+            if (is_string($command) && !str_contains($command, '{database}')) {
+                throw new BackupFailedException("The {$setting} general config setting doesn't use the {database} token, so it can't be pointed at the scratch database. Use {database} in it, or a closure, to create sanitized copies.");
+            }
+        }
     }
 
     public static function scratchName(string $source, string $runId): string

@@ -26,6 +26,8 @@ use yii\web\Response;
 
 class BackupController extends Controller
 {
+    private const SANITIZE_JOBS_SESSION_KEY = 'backup.sanitizeJobIds';
+
     protected array|bool|int $allowAnonymous = false;
 
     public function actionHealthCard(): Response
@@ -154,6 +156,10 @@ class BackupController extends Controller
         // A dump, restore, and rewrite of a big database outlasts the default 300 s TTR.
         $jobId = Queue::push(new SanitizedCopyJob(), null, null, 3600);
 
+        // actionSanitizeStatus() only answers for jobs this session queued.
+        $session = Craft::$app->getSession();
+        $session->set(self::SANITIZE_JOBS_SESSION_KEY, [...(array) $session->get(self::SANITIZE_JOBS_SESSION_KEY, []), $jobId]);
+
         return $this->asJson([
             'success' => true,
             'jobId' => $jobId,
@@ -172,6 +178,9 @@ class BackupController extends Controller
         $this->requireAcceptsJson();
 
         $jobId = (string) $this->request->getRequiredQueryParam('jobId');
+        if (!in_array($jobId, (array) Craft::$app->getSession()->get(self::SANITIZE_JOBS_SESSION_KEY, []), true)) {
+            throw new NotFoundHttpException('Unknown job.');
+        }
         $queue = Craft::$app->getQueue();
         $status = $queue->status($jobId);
 
