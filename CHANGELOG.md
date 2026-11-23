@@ -1,6 +1,6 @@
 # Release Notes for Craft Backup
 
-## Unreleased
+## 2.5.0 - 2026-11-23
 
 ### Added
 - Events as extension points. `BackupRunner` fires `EVENT_BEFORE_RUN`, `EVENT_BEFORE_DB_DUMP`, `EVENT_ARCHIVE_CREATED`, `EVENT_AFTER_CLEANUP`, `EVENT_CLEANUP_FAILED`, `EVENT_AFTER_RUN`, `EVENT_RUN_FAILED`, and `EVENT_LOW_DISK_SPACE`. Handlers can cancel a whole run or the dump of one database connection. See the README for the payloads and examples.
