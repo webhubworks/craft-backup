@@ -2,13 +2,29 @@
 
 namespace webhubworks\backup\tests\Unit;
 
+use RuntimeException;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\services\targets\TargetInterface;
 
+/**
+ * In-memory target. Registered as the `fake` driver, it reads these config keys:
+ * `id` to find the instance in `$built`, `fail` to make uploads throw, and `disk`
+ * for diskUsage().
+ */
 final class FakeTarget implements TargetInterface
 {
+    /** @var array<string, self> Instances built through the `fake` driver, by their `id` key. */
+    public static array $built = [];
+
     /** @var array<string, array{path:string, size:int, modified:int, encrypted:?bool}> */
     public array $files = [];
+
+    public function __construct(private readonly array $definition = [], string $name = '')
+    {
+        if (isset($definition['id'])) {
+            self::$built[$definition['id']] = $this;
+        }
+    }
 
     public function add(string $path, int $size = 1): void
     {
@@ -17,7 +33,10 @@ final class FakeTarget implements TargetInterface
 
     public function upload(string $localPath, string $remoteFilename, BackupConfig $config): void
     {
-        $this->add($remoteFilename);
+        if ($this->definition['fail'] ?? false) {
+            throw new RuntimeException('Connection refused');
+        }
+        $this->add($remoteFilename, (int) filesize($localPath));
     }
 
     public function list(): array
@@ -32,6 +51,6 @@ final class FakeTarget implements TargetInterface
 
     public function diskUsage(): ?array
     {
-        return null;
+        return $this->definition['disk'] ?? null;
     }
 }
