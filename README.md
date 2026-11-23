@@ -237,7 +237,7 @@ Event::on(BackupRunner::class, BackupRunner::EVENT_AFTER_RUN, function(RunResult
 });
 ```
 
-Add a target driver of your own. The class implements `webhubworks\backup\services\targets\TargetInterface`, and its constructor takes the target's config array and the backup `name`. Registering a built-in name such as `sftp` replaces that driver.
+Add a target driver of your own. The class implements `webhubworks\backup\services\targets\TargetInterface`, and its constructor takes the target's config array and the backup `name`. Its `list()` takes a `$kind`, one of the `TargetInterface::KIND_*` constants, and returns only the files of that kind. Registering a built-in name such as `sftp` replaces that driver.
 
 ```php
 use webhubworks\backup\events\RegisterTargetDriversEvent;
