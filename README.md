@@ -146,6 +146,8 @@ php craft backup/clean --dry-run         # plan only, don't delete
 php craft backup/monitor                 # evaluate monitor_backups rules, print JSON, exit non-zero on failure
 php craft backup/publish-config          # copy default config into project
 php craft backup/decrypt <in> [out]      # reverse an .enc archive to .tar.gz
+php craft backup/sanitize                # sanitized copy of the database, see "Sanitized copy"
+php craft backup/sanitize --to=local     # sanitized copy to the target called "local" only
 ```
 
 ## Cron
@@ -246,6 +248,65 @@ Event::on(BackupRunner::class, BackupRunner::EVENT_REGISTER_TARGET_DRIVERS, func
 ```
 
 Then use it under `targets` in `config/backup.php`, for example `'dropbox' => ['driver' => 'dropbox', 'token' => App::env('DROPBOX_TOKEN')]`.
+
+## Sanitized copy
+
+A sanitized copy is a database dump with personal data replaced by fake values and secrets removed. Hand it to developers or load it into staging instead of a production dump. It isn't a backup: never restore production from it.
+
+Create one with `php craft backup/sanitize`, or with the **Sanitized copy** button next to **Backup** in the Backups utility. The button queues a job, and the copy shows up under **Backups by target** with a **Sanitized** badge when the job finishes. Each target keeps only the newest sanitized copy. Retention and health checks ignore sanitized copies.
+
+### How it works
+
+1. The plugin dumps the site database.
+2. It restores the dump into a scratch database on the same server, named `<db>_sanitize_<runId>`.
+3. It rewrites the scratch database.
+4. It dumps the scratch database and drops it, even when a step fails.
+5. It packs the dump with the same format, password, and encryption as your backups and uploads it to the targets.
+
+The live database is only read. The database user needs the `CREATE DATABASE` and `DROP DATABASE` privileges. Without them, the run fails with an error that says so. On ddev, grant them with:
+
+```bash
+ddev exec -s db 'mysql -uroot -proot -e "GRANT ALL ON *.* TO '"'"'db'"'"'@'"'"'%'"'"'; FLUSH PRIVILEGES;"'
+```
+
+### What's sanitized without any config
+
+- **Users:** email, username, first, last, and full name, the last login IP, and the password. Every sanitized user gets the password from `sanitize.password`, `password` by default, so you can log in as anyone on staging. Admins stay as they are; change that with `sanitize.keep_users`.
+- **Addresses:** names, organization, tax ID, street lines, postal code, and coordinates.
+- **Emptied tables:** the search index, sessions, the queue, tokens, two-factor authentication, SSO identities, and OAuth tokens. From Craft 5 on, also the Craft 4 `content` and `matrixcontent_*` tables, which the Craft 5 upgrade leaves behind with their old data.
+- **GraphQL tokens:** replaced, except the public schema's token.
+
+### Your own rules
+
+A rule is a [Faker formatter](https://fakerphp.org/formatters/) name or a closure that returns the new value. Empty values are never passed to a rule.
+
+```php
+'sanitize' => [
+    // Custom fields by handle, across all element types. Craft 5 and later.
+    'fields' => [
+        'phone' => 'phoneNumber',
+        'notes' => fn (\Faker\Generator $faker, mixed $value) => $faker->sentence(),
+    ],
+    // Columns of other tables. Use names without the table prefix.
+    'tables' => [
+        'commerce_orders' => ['email' => 'safeEmail'],
+    ],
+    // Tables whose rows are deleted. The table structure stays. Glob patterns match many tables.
+    'empty_tables' => ['formie_submissions', 'freeform_submissions*'],
+    // Users left as they are. Receives the users row as an array.
+    'keep_users' => fn (array $user) => str_ends_with($user['email'], '@example.com'),
+],
+```
+
+A closure receives the Faker generator, the current value, and the row with the values earlier rules already produced. Field rules with a formatter name only touch text values; use a closure for fields that store arrays, such as Table or Link fields. Rules for tables, columns, or fields that don't exist are skipped with a warning in the log.
+
+### What it doesn't cover
+
+- Free text, such as rich text bodies or entry titles, can still name people.
+- Plugin settings in the `projectconfig` table can hold API keys in plain text.
+- Plugin tables, such as Formie, Freeform, or Commerce data, need your own `empty_tables` or `tables` rules.
+
+Check a copy before you share it outside your team.
 
 ## Yet another backup plugin? Here's why:
 

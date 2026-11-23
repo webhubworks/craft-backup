@@ -35,6 +35,7 @@ final class BackupConfig
         public readonly ?int $downloadMaxBytes,
         public readonly ?string $xSendFileHeader,
         public readonly ?string $xSendFileUriPrefix,
+        public readonly array $sanitize = [],
     ) {
     }
 
@@ -122,6 +123,7 @@ final class BackupConfig
             downloadMaxBytes: Bytes::parse($download['max_bytes'] ?? '500MB'),
             xSendFileHeader: $xSendFileHeader,
             xSendFileUriPrefix: $xSendFileUriPrefix,
+            sanitize: (array) ($raw['sanitize'] ?? []),
         );
 
         $config->validate();

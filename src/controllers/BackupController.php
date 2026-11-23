@@ -3,9 +3,13 @@
 namespace webhubworks\backup\controllers;
 
 use Craft;
+use craft\helpers\Cp;
+use craft\helpers\Queue;
+use craft\queue\Queue as CraftQueue;
 use craft\web\Controller;
 use craft\web\View;
 use Throwable;
+use webhubworks\backup\jobs\SanitizedCopyJob;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\Plugin;
 use webhubworks\backup\services\BackupGrouper;
@@ -14,6 +18,7 @@ use webhubworks\backup\services\Bytes;
 use webhubworks\backup\services\notifications\MailChannel;
 use webhubworks\backup\services\notifications\Notification;
 use webhubworks\backup\services\notifications\Notifier;
+use webhubworks\backup\services\targets\TargetInterface;
 use webhubworks\backup\utilities\BackupUtility;
 use yii\web\BadRequestHttpException;
 use yii\web\NotFoundHttpException;
@@ -21,6 +26,8 @@ use yii\web\Response;
 
 class BackupController extends Controller
 {
+    private const SANITIZE_JOBS_SESSION_KEY = 'backup.sanitizeJobIds';
+
     protected array|bool|int $allowAnonymous = false;
 
     public function actionHealthCard(): Response
@@ -53,6 +60,8 @@ class BackupController extends Controller
                 'dateTimeFormat' => $config->dateTimeFormat,
                 'downloadMaxBytes' => $config->xSendFileHeader !== null ? null : $config->downloadMaxBytes,
                 'canDownload' => Craft::$app->getUser()->checkPermission('backup:download'),
+                // Cp::iconSvg() exists from Craft 5 on; Craft 4 shows the text badge alone.
+                'sanitizedIcon' => version_compare(Craft::$app->getVersion(), '5.0', '>=') ? Cp::iconSvg('broom') : null,
             ];
         });
     }
@@ -78,7 +87,7 @@ class BackupController extends Controller
 
         if (str_contains($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")
             || $name === '' || $name[0] === '.'
-            || !BackupGrouper::isArchiveOf($name, $config->name)
+            || BackupGrouper::kindOf($name, $config->name) === null
         ) {
             throw new BadRequestHttpException("Invalid backup filename: '{$name}'.");
         }
@@ -130,6 +139,61 @@ class BackupController extends Controller
         return $this->response->sendFile($pathReal, $name, [
             'mimeType' => $mimeType,
         ]);
+    }
+
+    public function actionSanitize(): Response
+    {
+        $this->requirePermission('utility:' . BackupUtility::id());
+        $this->requirePostRequest();
+        $this->requireAcceptsJson();
+
+        try {
+            BackupConfig::load();
+        } catch (Throwable $e) {
+            return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
+        }
+
+        // A dump, restore, and rewrite of a big database outlasts the default 300 s TTR.
+        $jobId = Queue::push(new SanitizedCopyJob(), null, null, 3600);
+
+        // actionSanitizeStatus() only answers for jobs this session queued.
+        $session = Craft::$app->getSession();
+        $session->set(self::SANITIZE_JOBS_SESSION_KEY, [...(array) $session->get(self::SANITIZE_JOBS_SESSION_KEY, []), $jobId]);
+
+        return $this->asJson([
+            'success' => true,
+            'jobId' => $jobId,
+            // Server time, so the page can recognize the new copy whatever the browser clock says.
+            'queuedAt' => time(),
+            'message' => Craft::t('backup', 'Sanitized copy queued. It appears under "Backups by target" when it finishes.'),
+        ]);
+    }
+
+    /**
+     * Lets the utility page follow a queued sanitized copy until it finishes.
+     */
+    public function actionSanitizeStatus(): Response
+    {
+        $this->requirePermission('utility:' . BackupUtility::id());
+        $this->requireAcceptsJson();
+
+        $jobId = (string) $this->request->getRequiredQueryParam('jobId');
+        if (!in_array($jobId, (array) Craft::$app->getSession()->get(self::SANITIZE_JOBS_SESSION_KEY, []), true)) {
+            throw new NotFoundHttpException('Unknown job.');
+        }
+        $queue = Craft::$app->getQueue();
+        $status = $queue->status($jobId);
+
+        if ($queue instanceof CraftQueue && $status === CraftQueue::STATUS_FAILED) {
+            $error = $queue->getJobDetails($jobId)['error'] ?? null;
+            return $this->asJson(['status' => 'failed', 'error' => $error ?: Craft::t('backup', 'Creating the sanitized copy failed. See the queue for details.')]);
+        }
+
+        return $this->asJson(['status' => match ($status) {
+            CraftQueue::STATUS_DONE => 'done',
+            CraftQueue::STATUS_RESERVED => 'running',
+            default => 'waiting',
+        }]);
     }
 
     public function actionNotificationsCard(): Response
@@ -250,7 +314,7 @@ class BackupController extends Controller
     /**
      * @return array<string, array{
      *     driver:?string,
-     *     backups:array<int, array{name:string, path:string, size:int, modified:int, encrypted:?bool}>,
+     *     backups:array<int, array{name:string, path:string, size:int, modified:int, encrypted:?bool, kind:string}>,
      *     backupsBytes:int,
      *     diskUsage:array{total:int, free:int}|null,
      *     warnThreshold:array{bytes:int, percent:?float}|null,
@@ -265,7 +329,12 @@ class BackupController extends Controller
         foreach ($status as $targetName => $entry) {
             $rows = [];
             $bytes = 0;
-            foreach ($entry['backups'] as $file) {
+            $files = [
+                ...array_map(fn(array $file) => [...$file, 'kind' => TargetInterface::KIND_BACKUP], $entry['backups']),
+                ...array_map(fn(array $file) => [...$file, 'kind' => TargetInterface::KIND_SANITIZED], $entry['sanitized']),
+                ...array_map(fn(array $file) => [...$file, 'kind' => TargetInterface::KIND_CRAFT], $entry['craft']),
+            ];
+            foreach ($files as $file) {
                 $size = (int) $file['size'];
                 $bytes += $size;
                 $rows[] = [
@@ -274,6 +343,7 @@ class BackupController extends Controller
                     'size' => $size,
                     'modified' => (int) $file['modified'],
                     'encrypted' => $file['encrypted'] ?? null,
+                    'kind' => $file['kind'],
                 ];
             }
 

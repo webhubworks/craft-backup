@@ -21,7 +21,7 @@ class ArchiveEvent extends Event
     public string $path;
 
     /**
-     * @var string|null `db` or `files` when `source.split_db_and_files` is on, otherwise null.
+     * @var string|null `db` or `files` when `source.split_db_and_files` is on, `sanitized` for a sanitized copy, otherwise null.
      */
     public ?string $kind = null;
 

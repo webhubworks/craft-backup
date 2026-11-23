@@ -76,11 +76,11 @@ class SftpTarget implements TargetInterface
         }
     }
 
-    public function list(): array
+    public function list(string $kind = self::KIND_BACKUP): array
     {
         $out = [];
         foreach ($this->fs->listContents('/', false) as $item) {
-            if (!$item instanceof FileAttributes || !BackupGrouper::isArchiveOf(basename($item->path()), $this->backupName)) {
+            if (!$item instanceof FileAttributes || BackupGrouper::kindOf(basename($item->path()), $this->backupName) !== $kind) {
                 continue;
             }
             $out[] = [
