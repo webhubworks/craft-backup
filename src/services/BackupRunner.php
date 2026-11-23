@@ -5,10 +5,14 @@ namespace webhubworks\backup\services;
 use Craft;
 use craft\helpers\FileHelper;
 use Throwable;
+use webhubworks\backup\events\ArchiveEvent;
+use webhubworks\backup\events\CleanupEvent;
+use webhubworks\backup\events\DbDumpEvent;
+use webhubworks\backup\events\RunEvent;
+use webhubworks\backup\events\RunResultEvent;
 use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\models\BackupResult;
-use webhubworks\backup\services\notifications\Notifier;
 use webhubworks\backup\services\targets\SftpTarget;
 use webhubworks\backup\services\targets\TargetFactory;
 use webhubworks\backup\services\targets\TargetInterface;
@@ -20,13 +24,75 @@ use yii\base\Component;
  */
 class BackupRunner extends Component
 {
+    /**
+     * @event RunEvent Before a run starts. Set `$event->isValid = false` to skip the run.
+     */
+    public const EVENT_BEFORE_RUN = 'beforeRun';
+
+    /**
+     * @event RunResultEvent After every run except dry runs, whether it succeeded or not.
+     */
+    public const EVENT_AFTER_RUN = 'afterRun';
+
+    /**
+     * @event RunResultEvent After EVENT_AFTER_RUN, when the run failed or a target failed.
+     */
+    public const EVENT_RUN_FAILED = 'runFailed';
+
+    /**
+     * @event DbDumpEvent Before each database connection is dumped. Set `$event->isValid = false` to skip it.
+     */
+    public const EVENT_BEFORE_DB_DUMP = 'beforeDbDump';
+
+    /**
+     * @event ArchiveEvent After each archive is built and, when configured, encrypted.
+     */
+    public const EVENT_ARCHIVE_CREATED = 'archiveCreated';
+
+    /**
+     * @event CleanupEvent After retention ran on a target, in a run or in `backup/clean`.
+     */
+    public const EVENT_AFTER_CLEANUP = 'afterCleanup';
+
+    /**
+     * @event CleanupEvent When retention failed on a target.
+     */
+    public const EVENT_CLEANUP_FAILED = 'cleanupFailed';
+
+    /**
+     * @event RunResultEvent After EVENT_AFTER_RUN, when targets fell below their free-disk warning threshold.
+     */
+    public const EVENT_LOW_DISK_SPACE = 'lowDiskSpace';
+
+    /**
+     * @event \webhubworks\backup\events\RegisterTargetDriversEvent When target drivers are resolved.
+     * Listen on the class: `Event::on(BackupRunner::class, BackupRunner::EVENT_REGISTER_TARGET_DRIVERS, ...)`.
+     */
+    public const EVENT_REGISTER_TARGET_DRIVERS = 'registerTargetDrivers';
+
     public function run(BackupConfig $config, array $flags = []): BackupResult
     {
         $runId = bin2hex(random_bytes(4));
         $dryRun = (bool) ($flags['dry_run'] ?? false);
         $startedAt = microtime(true);
 
-        $logger = $this->logger($runId);
+        $logger = new BackupLogger(['runId' => $runId]);
+
+        $beforeRun = new RunEvent(['config' => $config, 'runId' => $runId, 'flags' => $flags, 'dryRun' => $dryRun]);
+        $this->trigger(self::EVENT_BEFORE_RUN, $beforeRun);
+        if (!$beforeRun->isValid) {
+            $logger->info('Backup run skipped by an event handler');
+            return new BackupResult(
+                runId: $runId,
+                archivePaths: [],
+                archiveBytes: 0,
+                durationSeconds: microtime(true) - $startedAt,
+                targetStatuses: [],
+                errors: [],
+                skipped: true,
+            );
+        }
+
         $logger->info('Backup run starting', [
             'dry_run' => $dryRun,
             'split' => $config->splitDbAndFiles,
@@ -51,28 +117,28 @@ class BackupRunner extends Component
                 if (!$onlyFiles) {
                     $dbStaging = $stagingDir . DIRECTORY_SEPARATOR . 'db-staging';
                     FileHelper::createDirectory($dbStaging);
-                    $dumps = (new DbDumper())->dump($config->databases, $dbStaging);
-                    $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
-                    $archivePaths[] = $this->finishArchive($config, $runId, $dbStaging, $runDir, $logger, 'db');
+                    // Event handlers can skip every connection, which leaves nothing to archive.
+                    if ($this->dumpDatabases($config, $runId, $dryRun, $dbStaging, $logger) !== []) {
+                        $archivePaths[] = $this->finishArchive($config, $runId, $dryRun, $dbStaging, $runDir, $logger, 'db');
+                    }
                 }
 
                 if (!$onlyDb) {
                     $filesStaging = $stagingDir . DIRECTORY_SEPARATOR . 'files-staging';
                     FileHelper::createDirectory($filesStaging);
                     $this->stageFiles($config, $filesStaging, $logger);
-                    $archivePaths[] = $this->finishArchive($config, $runId, $filesStaging, $runDir, $logger, 'files');
+                    $archivePaths[] = $this->finishArchive($config, $runId, $dryRun, $filesStaging, $runDir, $logger, 'files');
                 }
             } else {
                 if (!$onlyFiles) {
-                    $dumps = (new DbDumper())->dump($config->databases, $stagingDir);
-                    $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
+                    $this->dumpDatabases($config, $runId, $dryRun, $stagingDir, $logger);
                 }
 
                 if (!$onlyDb) {
                     $this->stageFiles($config, $stagingDir, $logger);
                 }
 
-                $archivePaths[] = $this->finishArchive($config, $runId, $stagingDir, $runDir, $logger, null);
+                $archivePaths[] = $this->finishArchive($config, $runId, $dryRun, $stagingDir, $runDir, $logger, null);
             }
 
             foreach ($archivePaths as $path) {
@@ -117,12 +183,17 @@ class BackupRunner extends Component
                 $policy = new RetentionPolicy();
                 // Only targets with a successful upload: pruning after a failed one could delete good backups while the new one is missing.
                 foreach ($uploadedTargets as $name => $target) {
+                    $event = new CleanupEvent(['config' => $config, 'target' => $name, 'runId' => $runId]);
                     try {
-                        $deleted = $policy->apply($target, $config->retention);
-                        $logger->info("Pruned {$deleted} old backup(s) on {$name}");
+                        $event->deleted = $policy->apply($target, $config->retention);
                     } catch (Throwable $e) {
                         $logger->warning("Retention on {$name} failed", ['error' => $e->getMessage()]);
+                        $event->exception = $e;
+                        $this->trigger(self::EVENT_CLEANUP_FAILED, $event);
+                        continue;
                     }
+                    $logger->info("Pruned {$event->deleted} old backup(s) on {$name}");
+                    $this->trigger(self::EVENT_AFTER_CLEANUP, $event);
                 }
             }
         } catch (Throwable $e) {
@@ -137,12 +208,27 @@ class BackupRunner extends Component
 
         if (!$dryRun) {
             (new RunStateStore())->record($result);
-            $notifier = new Notifier($config, $logger);
-            $notifier->notifyRun($result);
-            $notifier->notifyLowDisk($result);
+
+            $event = new RunResultEvent(['config' => $config, 'result' => $result]);
+            $this->trigger(self::EVENT_AFTER_RUN, $event);
+            if (!$result->isSuccessful()) {
+                $this->trigger(self::EVENT_RUN_FAILED, $event);
+            }
+            if ($result->lowDiskTargets !== []) {
+                $this->trigger(self::EVENT_LOW_DISK_SPACE, $event);
+            }
         }
 
         return $result;
+    }
+
+    /**
+     * @deprecated in 2.5.0. Use status(), which also reports a per-target error instead of hiding it.
+     * @return array<string, array<int, array{path:string, size:int, modified:int, encrypted:?bool}>>
+     */
+    public function list(BackupConfig $config): array
+    {
+        return array_map(fn(array $entry) => $entry['backups'], $this->status($config));
     }
 
     /**
@@ -178,15 +264,26 @@ class BackupRunner extends Component
      */
     public function clean(BackupConfig $config, array $flags = []): int
     {
+        $dryRun = (bool) ($flags['dry_run'] ?? false);
         $factory = new TargetFactory();
         $policy = new RetentionPolicy();
         $total = 0;
         $errors = [];
         foreach ($this->targetDefinitions($config, $flags['only_to'] ?? null) as $name => $definition) {
+            $event = new CleanupEvent(['config' => $config, 'target' => $name]);
             try {
-                $total += $policy->apply($factory->make($definition, $config->name), $config->retention, (bool) ($flags['dry_run'] ?? false));
+                $event->deleted = $policy->apply($factory->make($definition, $config->name), $config->retention, $dryRun);
             } catch (Throwable $e) {
                 $errors[] = "target {$name}: " . $e->getMessage();
+                $event->exception = $e;
+                if (!$dryRun) {
+                    $this->trigger(self::EVENT_CLEANUP_FAILED, $event);
+                }
+                continue;
+            }
+            $total += $event->deleted;
+            if (!$dryRun) {
+                $this->trigger(self::EVENT_AFTER_CLEANUP, $event);
             }
         }
 
@@ -195,6 +292,35 @@ class BackupRunner extends Component
         }
 
         return $total;
+    }
+
+    /**
+     * Dumps every configured connection that no EVENT_BEFORE_DB_DUMP handler skips.
+     *
+     * @return list<string> Paths of the dumps written.
+     */
+    private function dumpDatabases(BackupConfig $config, string $runId, bool $dryRun, string $stagingDir, BackupLogger $logger): array
+    {
+        $dumper = new DbDumper();
+        $dumps = [];
+        foreach ($config->databases as $connectionId) {
+            $event = new DbDumpEvent([
+                'config' => $config,
+                'runId' => $runId,
+                'connectionId' => $connectionId,
+                'path' => DbDumper::path($stagingDir, $connectionId),
+                'dryRun' => $dryRun,
+            ]);
+            $this->trigger(self::EVENT_BEFORE_DB_DUMP, $event);
+            if (!$event->isValid) {
+                $logger->info("Dump of {$connectionId} skipped by an event handler");
+                continue;
+            }
+            array_push($dumps, ...$dumper->dump([$connectionId], $stagingDir));
+        }
+        $logger->info('Dumped databases', ['files' => array_map('basename', $dumps)]);
+
+        return $dumps;
     }
 
     private function stageFiles(BackupConfig $config, string $stagingDir, BackupLogger $logger): void
@@ -228,7 +354,7 @@ class BackupRunner extends Component
      * when set, it's appended to the filename so split halves are grouped
      * in retention/monitor by their shared runId.
      */
-    private function finishArchive(BackupConfig $config, string $runId, string $stagingDir, string $outputDir, BackupLogger $logger, ?string $kind): string
+    private function finishArchive(BackupConfig $config, string $runId, bool $dryRun, string $stagingDir, string $outputDir, BackupLogger $logger, ?string $kind): string
     {
         $extension = $config->compressionFormat === 'zip' ? 'zip' : 'tar.gz';
         $kindSuffix = $kind !== null ? "-{$kind}" : '';
@@ -243,6 +369,16 @@ class BackupRunner extends Component
         if ($config->encryptionEnabled) {
             $archivePath = $this->encryptArchive($config, $archivePath, $logger);
         }
+
+        $this->trigger(self::EVENT_ARCHIVE_CREATED, new ArchiveEvent([
+            'config' => $config,
+            'runId' => $runId,
+            'path' => $archivePath,
+            'kind' => $kind,
+            'bytes' => (int) filesize($archivePath),
+            'encrypted' => $config->encryptionEnabled || $config->archivePassword !== null,
+            'dryRun' => $dryRun,
+        ]));
 
         return $archivePath;
     }
@@ -332,12 +468,5 @@ class BackupRunner extends Component
             return $parsed === null ? null : Bytes::resolveThreshold($parsed, $totalBytes);
         }
         return null;
-    }
-
-    private function logger(string $runId): BackupLogger
-    {
-        $logger = new BackupLogger();
-        $logger->runId = $runId;
-        return $logger;
     }
 }

@@ -11,6 +11,7 @@ final class BackupResult
      * @param array<string, array{free:int, threshold:int, total:int}> $lowDiskTargets
      *        target name => post-upload disk snapshot for targets that fell below their warn threshold
      * @param array<string, int> $archiveSizes archive basename => bytes, kept because the archives are deleted after the run
+     * @param bool $skipped An EVENT_BEFORE_RUN handler canceled the run before it did anything.
      */
     public function __construct(
         public readonly string $runId,
@@ -21,6 +22,7 @@ final class BackupResult
         public readonly array $errors,
         public readonly array $lowDiskTargets = [],
         public readonly array $archiveSizes = [],
+        public readonly bool $skipped = false,
     ) {
     }
 

@@ -1,5 +1,22 @@
 # Release Notes for Craft Backup
 
+## Unreleased
+
+### Added
+- Events as extension points. `BackupRunner` fires `EVENT_BEFORE_RUN`, `EVENT_BEFORE_DB_DUMP`, `EVENT_ARCHIVE_CREATED`, `EVENT_AFTER_CLEANUP`, `EVENT_CLEANUP_FAILED`, `EVENT_AFTER_RUN`, `EVENT_RUN_FAILED`, and `EVENT_LOW_DISK_SPACE`. Handlers can cancel a whole run or the dump of one database connection. See the README for the payloads and examples.
+- `EVENT_REGISTER_TARGET_DRIVERS` registers target drivers of your own, or replaces a built-in one. Runs, `backup/clean`, `backup/list`, `backup/monitor`, and the Backups utility all use the registered drivers.
+- `BackupResult::$skipped` tells whether an event handler canceled the run. `backup/run` then prints "Skipped by an event handler." and exits with 0.
+
+### Changed
+- Mail, Slack, Discord, and webhook notifications are sent from listeners on `EVENT_AFTER_RUN` and `EVENT_LOW_DISK_SPACE` instead of from inside the runner.
+- `backup/clean` cleans the remaining targets when one target fails, and reports every failure at the end.
+
+### Deprecated
+- `BackupRunner::list()`. Use `BackupRunner::status()`, which also returns disk usage and an error per target. `list()` now returns an empty list for a target that fails instead of throwing.
+
+### Fixed
+- One target with a broken config, such as a missing SFTP host or an unknown driver, no longer stops uploads and retention on the other targets. `backup/list` and the Backups utility show the error for that target and list the others.
+
 ## 2.4.0 - 2026-11-19
 
 ### Added

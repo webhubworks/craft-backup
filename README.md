@@ -190,6 +190,63 @@ And on failure:
 
 If you already use [Oh Dear](https://ohdear.app/) for uptime monitoring, our [craft-ohdear](https://github.com/webhubworks/craft-ohdear) plugin exposes a `Check::backupHealth()` check that wraps `backup/monitor` — Oh Dear will then alert you (email, Slack, etc.) the moment a backup assertion fails, without you needing a separate cron-to-pager pipeline.
 
+## Events
+
+The backup runner fires events at each step, so a module or plugin can react to a run, skip parts of it, or add its own target drivers. Register listeners on the class, for example in your module's `init()`. The built-in notifications use the same events.
+
+| Constant on `BackupRunner`        | Event class                  | Fires                                                                                   |
+|-----------------------------------|------------------------------|-----------------------------------------------------------------------------------------|
+| `EVENT_BEFORE_RUN`                | `RunEvent`                   | Before a run starts. Set `$event->isValid = false` to skip the run.                    |
+| `EVENT_BEFORE_DB_DUMP`            | `DbDumpEvent`                | Before each database connection is dumped. Set `$event->isValid = false` to skip it.   |
+| `EVENT_ARCHIVE_CREATED`           | `ArchiveEvent`               | After each archive is built and encrypted. Split runs fire it twice.                   |
+| `EVENT_AFTER_CLEANUP`             | `CleanupEvent`               | After retention ran on a target, in a run or in `backup/clean`.                        |
+| `EVENT_CLEANUP_FAILED`            | `CleanupEvent`               | When retention failed on a target. `$event->exception` says why.                       |
+| `EVENT_AFTER_RUN`                 | `RunResultEvent`             | After every run, whether it succeeded or not.                                          |
+| `EVENT_RUN_FAILED`                | `RunResultEvent`             | After `EVENT_AFTER_RUN`, when the run failed or at least one target failed.            |
+| `EVENT_LOW_DISK_SPACE`            | `RunResultEvent`             | After `EVENT_AFTER_RUN`, when targets fell below their free-disk warning threshold.    |
+| `EVENT_REGISTER_TARGET_DRIVERS`   | `RegisterTargetDriversEvent` | When target drivers are resolved, for runs, `backup/list`, and `backup/monitor`.       |
+
+The event classes live in `webhubworks\backup\events`. A dry run fires only `EVENT_BEFORE_RUN`, `EVENT_BEFORE_DB_DUMP`, and `EVENT_ARCHIVE_CREATED`, each with `$event->dryRun` set to `true`. `backup/clean --dry-run` fires no events.
+
+Skip backups outside production:
+
+```php
+use craft\helpers\App;
+use webhubworks\backup\events\RunEvent;
+use webhubworks\backup\services\BackupRunner;
+use yii\base\Event;
+
+Event::on(BackupRunner::class, BackupRunner::EVENT_BEFORE_RUN, function(RunEvent $event) {
+    if (App::env('CRAFT_ENVIRONMENT') !== 'production') {
+        $event->isValid = false;
+    }
+});
+```
+
+Ping a heartbeat URL after every successful run:
+
+```php
+use webhubworks\backup\events\RunResultEvent;
+
+Event::on(BackupRunner::class, BackupRunner::EVENT_AFTER_RUN, function(RunResultEvent $event) {
+    if ($event->result->isSuccessful()) {
+        Craft::createGuzzleClient()->get(App::env('BACKUP_HEARTBEAT_URL'));
+    }
+});
+```
+
+Add a target driver of your own. The class implements `webhubworks\backup\services\targets\TargetInterface`, and its constructor takes the target's config array and the backup `name`. Registering a built-in name such as `sftp` replaces that driver.
+
+```php
+use webhubworks\backup\events\RegisterTargetDriversEvent;
+
+Event::on(BackupRunner::class, BackupRunner::EVENT_REGISTER_TARGET_DRIVERS, function(RegisterTargetDriversEvent $event) {
+    $event->drivers['dropbox'] = DropboxTarget::class;
+});
+```
+
+Then use it under `targets` in `config/backup.php`, for example `'dropbox' => ['driver' => 'dropbox', 'token' => App::env('DROPBOX_TOKEN')]`.
+
 ## Yet another backup plugin? Here's why:
 
 At webhub we've been building on Craft CMS and Laravel for years, and we want backups to work the same way across every project — whether the site runs on Craft or Laravel. This plugin closes one more part of the gap between the two stacks, following our [Craft Oh Dear](https://plugins.craftcms.com/ohdear) and [Flare](https://plugins.craftcms.com/craft-flare) plugins. On Laravel projects we reach for Spatie's excellent `laravel-backup` without a second thought; we wanted the same reliable, boring-in-a-good-way experience on Craft. And with Craft 5 (Yii-based) and Craft 6 (Laravel-based) both in the community's future, every Craft developer will soon be maintaining projects on both stacks — a backup tool that behaves consistently across all of them matters.
@@ -215,6 +272,7 @@ This plugin deliberately mirrors the CLI surface and config shape of [spatie/lar
 | ✅                                              | Slack notifications                     |
 | ✅                                              | Discord notifications                   |
 | ✅ (via `backup/monitor` + Oh Dear integration) | Monitor the health of your backups      |
+| ✅                                              | Events                                  |
 
 ## What is GFS retention? And why should I care?
 

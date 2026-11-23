@@ -28,7 +28,7 @@ class DbDumper
                 throw new BackupFailedException("DB connection '{$connectionId}' is not registered.");
             }
 
-            $target = $stagingDir . DIRECTORY_SEPARATOR . "db-{$connectionId}.sql";
+            $target = self::path($stagingDir, $connectionId);
 
             $db->backupTo($target);
             if (!is_file($target)) {
@@ -39,5 +39,10 @@ class DbDumper
         }
 
         return $outputs;
+    }
+
+    public static function path(string $stagingDir, string $connectionId): string
+    {
+        return $stagingDir . DIRECTORY_SEPARATOR . "db-{$connectionId}.sql";
     }
 }

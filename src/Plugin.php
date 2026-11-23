@@ -15,8 +15,11 @@ use craft\utilities\DbBackup;
 use craft\web\View;
 use webhubworks\backup\assetbundles\backup\BackupAsset;
 use webhubworks\backup\controllers\BackupController;
+use webhubworks\backup\events\RunResultEvent;
+use webhubworks\backup\services\BackupLogger;
 use webhubworks\backup\services\BackupMonitor;
 use webhubworks\backup\services\BackupRunner;
+use webhubworks\backup\services\notifications\Notifier;
 use webhubworks\backup\services\RunStateStore;
 use webhubworks\backup\twigextensions\BackupTwigExtension;
 use webhubworks\backup\utilities\BackupUtility;
@@ -54,6 +57,8 @@ class Plugin extends BasePlugin
             'runState' => RunStateStore::class,
         ]);
 
+        $this->registerNotifications();
+
         if (Craft::$app instanceof ConsoleApplication) {
             $this->controllerNamespace = 'webhubworks\\backup\\console\\controllers';
         } else {
@@ -64,6 +69,21 @@ class Plugin extends BasePlugin
             $this->registerPermissions();
             Craft::$app->getView()->registerTwigExtension(new BackupTwigExtension());
         }
+    }
+
+    /**
+     * The built-in channels listen to the runner's events like any project would.
+     */
+    private function registerNotifications(): void
+    {
+        $notifier = fn(RunResultEvent $event) => new Notifier($event->config, new BackupLogger(['runId' => $event->result->runId]));
+
+        Event::on(BackupRunner::class, BackupRunner::EVENT_AFTER_RUN, function(RunResultEvent $event) use ($notifier) {
+            $notifier($event)->notifyRun($event->result);
+        });
+        Event::on(BackupRunner::class, BackupRunner::EVENT_LOW_DISK_SPACE, function(RunResultEvent $event) use ($notifier) {
+            $notifier($event)->notifyLowDisk($event->result);
+        });
     }
 
     private function registerTranslations(): void

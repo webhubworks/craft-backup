@@ -44,6 +44,11 @@ class RunController extends Controller
             'dry_run' => $this->dryRun,
         ]);
 
+        if ($result->skipped) {
+            $this->stdout('Skipped by an event handler.' . PHP_EOL);
+            return ExitCode::OK;
+        }
+
         if ($result->isSuccessful()) {
             $this->stdout($result->summary() . PHP_EOL, Console::FG_GREEN);
             return ExitCode::OK;
