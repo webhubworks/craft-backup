@@ -5,11 +5,8 @@ namespace webhubworks\backup\services;
 use Craft;
 use InvalidArgumentException;
 use Throwable;
-use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
-use webhubworks\backup\services\targets\LocalTarget;
-use webhubworks\backup\services\targets\SftpTarget;
-use webhubworks\backup\services\targets\TargetInterface;
+use webhubworks\backup\services\targets\TargetFactory;
 use yii\base\Component;
 
 /**
@@ -109,7 +106,7 @@ class BackupMonitor extends Component
 
         // 1. Target is reachable
         try {
-            $target = $this->buildTarget($config->targets[$targetName], $config->name);
+            $target = (new TargetFactory())->make($config->targets[$targetName], $config->name);
             $files = $target->list();
             $groups = BackupGrouper::group($files);
             $items[] = $this->item('target_reachable', $reachableLabel, 'ok');
@@ -239,15 +236,6 @@ class BackupMonitor extends Component
         $d = intdiv($seconds, 86400);
         $h = intdiv($seconds % 86400, 3600);
         return $h > 0 ? "{$d}d {$h}h" : "{$d}d";
-    }
-
-    private function buildTarget(array $def, string $name): TargetInterface
-    {
-        return match ($def['driver'] ?? null) {
-            'local' => new LocalTarget($def, $name),
-            'sftp' => new SftpTarget($def, $name),
-            default => throw new BackupFailedException("Unknown target driver '{$def['driver']}'."),
-        };
     }
 
     /**

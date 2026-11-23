@@ -9,8 +9,8 @@ use webhubworks\backup\exceptions\BackupFailedException;
 use webhubworks\backup\models\BackupConfig;
 use webhubworks\backup\models\BackupResult;
 use webhubworks\backup\services\notifications\Notifier;
-use webhubworks\backup\services\targets\LocalTarget;
 use webhubworks\backup\services\targets\SftpTarget;
+use webhubworks\backup\services\targets\TargetFactory;
 use webhubworks\backup\services\targets\TargetInterface;
 use yii\base\Component;
 
@@ -85,11 +85,15 @@ class BackupRunner extends Component
                 return $this->result($runId, $archivePaths, $archiveBytes, $startedAt, $targetStatuses, $errors, [], $archiveSizes);
             }
 
-            foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
-                if ($target instanceof SftpTarget && !$target->hasHostFingerprint()) {
-                    $logger->warning("SFTP target {$name} has no host_fingerprint, so any server answering on its host receives the backup.");
-                }
+            $factory = new TargetFactory();
+            $uploadedTargets = [];
+            foreach ($this->targetDefinitions($config, $flags['only_to'] ?? null) as $name => $definition) {
+                // Built inside the try, so one broken target config doesn't stop the others.
                 try {
+                    $target = $factory->make($definition, $config->name);
+                    if ($target instanceof SftpTarget && !$target->hasHostFingerprint()) {
+                        $logger->warning("SFTP target {$name} has no host_fingerprint, so any server answering on its host receives the backup.");
+                    }
                     foreach ($archivePaths as $archivePath) {
                         $target->upload($archivePath, basename($archivePath), $config);
                     }
@@ -101,6 +105,7 @@ class BackupRunner extends Component
                         $lowDiskTargets[$name] = $low;
                         $logger->warning("Free disk on {$name} is below the configured warning threshold", $low);
                     }
+                    $uploadedTargets[$name] = $target;
                 } catch (Throwable $e) {
                     $targetStatuses[$name] = 'failed: ' . $e->getMessage();
                     $errors[] = "target {$name}: " . $e->getMessage();
@@ -110,11 +115,8 @@ class BackupRunner extends Component
 
             if (!($flags['disable_cleanup'] ?? false)) {
                 $policy = new RetentionPolicy();
-                foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $name => $target) {
-                    // Pruning after a failed upload could delete good backups while the new one is missing.
-                    if (($targetStatuses[$name] ?? null) !== 'ok') {
-                        continue;
-                    }
+                // Only targets with a successful upload: pruning after a failed one could delete good backups while the new one is missing.
+                foreach ($uploadedTargets as $name => $target) {
                     try {
                         $deleted = $policy->apply($target, $config->retention);
                         $logger->info("Pruned {$deleted} old backup(s) on {$name}");
@@ -144,46 +146,54 @@ class BackupRunner extends Component
     }
 
     /**
-     * @return array<string, array<int, array{path:string, size:int, modified:int}>>
+     * Per-target snapshot for `backup/list` and the Backups-by-target card: listing plus
+     * current disk usage of the volume backing the target (null when the driver doesn't
+     * expose it, e.g. SFTP). A target that can't be built or listed carries its error
+     * instead, so it doesn't hide the others.
+     *
+     * @return array<string, array{
+     *     backups: array<int, array{path:string, size:int, modified:int, encrypted:?bool}>,
+     *     diskUsage: array{total:int, free:int}|null,
+     *     error: ?string,
+     * }>
      */
-    public function list(BackupConfig $config): array
+    public function status(BackupConfig $config): array
     {
+        $factory = new TargetFactory();
         $out = [];
-        foreach ($this->targetsFor($config, null) as $name => $target) {
-            $out[$name] = $target->list();
+        foreach ($config->targets as $name => $definition) {
+            try {
+                $target = $factory->make($definition, $config->name);
+                $out[$name] = ['backups' => $target->list(), 'diskUsage' => $target->diskUsage(), 'error' => null];
+            } catch (Throwable $e) {
+                $out[$name] = ['backups' => [], 'diskUsage' => null, 'error' => $e->getMessage()];
+            }
         }
         return $out;
     }
 
     /**
-     * Per-target snapshot used by the Backups-by-target card: listing plus
-     * current disk usage of the volume backing the target (null when the
-     * driver doesn't expose it, e.g. SFTP).
-     *
-     * @return array<string, array{
-     *     backups: array<int, array{path:string, size:int, modified:int, encrypted:?bool}>,
-     *     diskUsage: array{total:int, free:int}|null,
-     * }>
+     * Applies retention to every target, or only to `only_to`. A failing target doesn't
+     * stop the others; the failures are thrown together at the end.
      */
-    public function status(BackupConfig $config): array
-    {
-        $out = [];
-        foreach ($this->targetsFor($config, null) as $name => $target) {
-            $out[$name] = [
-                'backups' => $target->list(),
-                'diskUsage' => $target->diskUsage(),
-            ];
-        }
-        return $out;
-    }
-
     public function clean(BackupConfig $config, array $flags = []): int
     {
+        $factory = new TargetFactory();
         $policy = new RetentionPolicy();
         $total = 0;
-        foreach ($this->targetsFor($config, $flags['only_to'] ?? null) as $target) {
-            $total += $policy->apply($target, $config->retention, (bool) ($flags['dry_run'] ?? false));
+        $errors = [];
+        foreach ($this->targetDefinitions($config, $flags['only_to'] ?? null) as $name => $definition) {
+            try {
+                $total += $policy->apply($factory->make($definition, $config->name), $config->retention, (bool) ($flags['dry_run'] ?? false));
+            } catch (Throwable $e) {
+                $errors[] = "target {$name}: " . $e->getMessage();
+            }
         }
+
+        if ($errors !== []) {
+            throw new BackupFailedException('Cleanup failed on ' . implode('; ', $errors));
+        }
+
         return $total;
     }
 
@@ -248,25 +258,11 @@ class BackupRunner extends Component
     }
 
     /**
-     * @return iterable<string, TargetInterface>
+     * @return array<string, array> target name => definition
      */
-    private function targetsFor(BackupConfig $config, ?string $onlyTo): iterable
+    private function targetDefinitions(BackupConfig $config, ?string $onlyTo): array
     {
-        foreach ($config->targets as $name => $def) {
-            if ($onlyTo !== null && $onlyTo !== $name) {
-                continue;
-            }
-            yield $name => $this->buildTarget($def, $config->name);
-        }
-    }
-
-    private function buildTarget(array $def, string $name): TargetInterface
-    {
-        return match ($def['driver'] ?? null) {
-            'local' => new LocalTarget($def, $name),
-            'sftp' => new SftpTarget($def, $name),
-            default => throw new BackupFailedException("Unknown target driver '{$def['driver']}'."),
-        };
+        return $onlyTo === null ? $config->targets : array_intersect_key($config->targets, [$onlyTo => true]);
     }
 
     private function makeRunDir(string $name, string $runId): string

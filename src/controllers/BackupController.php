@@ -254,6 +254,7 @@ class BackupController extends Controller
      *     backupsBytes:int,
      *     diskUsage:array{total:int, free:int}|null,
      *     warnThreshold:array{bytes:int, percent:?float}|null,
+     *     error:?string,
      * }>
      */
     private static function collectBackups(BackupConfig $config): array
@@ -284,6 +285,7 @@ class BackupController extends Controller
                 'backupsBytes' => $bytes,
                 'diskUsage' => $entry['diskUsage'],
                 'warnThreshold' => self::warnThresholdFor($config, $targetName, $entry['diskUsage']),
+                'error' => $entry['error'],
             ];
         }
 

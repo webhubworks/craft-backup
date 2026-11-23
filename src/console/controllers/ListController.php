@@ -16,9 +16,12 @@ class ListController extends Controller
 
     public function actionIndex(): int
     {
-        foreach (Plugin::getInstance()->runner->list($this->loadConfig()) as $targetName => $files) {
+        foreach (Plugin::getInstance()->runner->status($this->loadConfig()) as $targetName => $entry) {
             $this->stdout(PHP_EOL . $targetName . PHP_EOL, Console::FG_YELLOW);
-            foreach ($files as $file) {
+            if ($entry['error'] !== null) {
+                $this->stderr("  Could not list backups: {$entry['error']}" . PHP_EOL, Console::FG_RED);
+            }
+            foreach ($entry['backups'] as $file) {
                 $this->stdout(sprintf("  %s  %10d bytes  %s\n", $file['modified'], $file['size'], $file['path']));
             }
         }

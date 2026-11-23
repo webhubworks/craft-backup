@@ -33,7 +33,9 @@
                 {% set showDownload = isLocal and canDownload %}
                 <div id="{{ paneId }}" class="cb-tab-pane{% if not loop.first %} hidden{% endif %}">
                     <div class="cb-list">
-                        {% if target.backups|length %}
+                        {% if target.error %}
+                            <div class="cb-list__empty error">{{ 'Could not list backups: {error}'|t('backup', { error: target.error }) }}</div>
+                        {% elseif target.backups|length %}
                             <table>
                                 <thead>
                                     <tr>
