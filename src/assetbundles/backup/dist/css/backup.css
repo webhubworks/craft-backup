@@ -699,6 +699,46 @@
     }
 }
 
+/* Collapsed cards stay at their own height when the card next to them opens. */
+.cb-cards > [data-cb-card="notifications"],
+.cb-cards > [data-cb-card="sanitize"] {
+    align-self: start;
+}
+
+.cb-card__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.cb-card__heading > h2 {
+    margin: 0;
+}
+
+.cb-card__subtitle {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.cb-sanitize__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+}
+
+.cb-sanitize__warning {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #3f4b5b;
+}
+
+.cb-sanitize__note {
+    margin: 18px 0 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
 .cb-channel + .cb-channel {
     margin-top: 20px;
     padding-top: 20px;

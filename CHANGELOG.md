@@ -6,6 +6,7 @@
 
 ### Added
 - Sanitized copies: a database dump with personal data replaced by fake values and secrets removed, for developers and staging. Create one with `php craft backup/sanitize` or the new **Sanitized copy** button in the Backups utility. Users, addresses, the search index, sessions, tokens, and two-factor tables are covered without config. The `sanitize` config block adds rules for custom fields by handle, other tables, and tables to empty. Each target keeps only the newest copy, which appears under **Backups by target** with a **Sanitized** badge. See the README for how it works and what it doesn't cover.
+- A collapsed **Sanitized copy** card in the Backups utility shows what a sanitized copy does with the current config: the targets that receive it, the user columns, password, and kept users, the rewritten tables and custom fields, and the emptied tables. It checks the rules against the database and warns about tables, columns, fields, and targets that don't exist.
 
 ### Changed
 - Requires `fakerphp/faker`.

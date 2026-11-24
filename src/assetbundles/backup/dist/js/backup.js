@@ -8,6 +8,7 @@
         checks: 'backup/backup/checks-card',
         backups: 'backup/backup/backups-card',
         notifications: 'backup/backup/notifications-card',
+        sanitize: 'backup/backup/sanitize-card',
     };
 
     function moveExtensionOutsideContent() {

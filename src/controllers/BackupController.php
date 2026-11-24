@@ -8,6 +8,7 @@ use craft\helpers\Queue;
 use craft\queue\Queue as CraftQueue;
 use craft\web\Controller;
 use craft\web\View;
+use InvalidArgumentException;
 use Throwable;
 use webhubworks\backup\jobs\SanitizedCopyJob;
 use webhubworks\backup\models\BackupConfig;
@@ -18,6 +19,7 @@ use webhubworks\backup\services\Bytes;
 use webhubworks\backup\services\notifications\MailChannel;
 use webhubworks\backup\services\notifications\Notification;
 use webhubworks\backup\services\notifications\Notifier;
+use webhubworks\backup\services\sanitize\SanitizePreview;
 use webhubworks\backup\services\targets\TargetInterface;
 use webhubworks\backup\utilities\BackupUtility;
 use yii\web\BadRequestHttpException;
@@ -63,6 +65,17 @@ class BackupController extends Controller
                 // Cp::iconSvg() exists from Craft 5 on; Craft 4 shows the text badge alone.
                 'sanitizedIcon' => version_compare(Craft::$app->getVersion(), '5.0', '>=') ? Cp::iconSvg('broom') : null,
             ];
+        });
+    }
+
+    public function actionSanitizeCard(): Response
+    {
+        return $this->renderCard('backup/_card_sanitize', function(BackupConfig $config) {
+            try {
+                return ['preview' => (new SanitizePreview())->describe($config), 'error' => null];
+            } catch (InvalidArgumentException $e) {
+                return ['preview' => null, 'error' => $e->getMessage()];
+            }
         });
     }
 

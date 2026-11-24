@@ -1,0 +1,107 @@
+{# Built-in rules show the column only; project rules also show their formatter or "Custom rule". #}
+{% macro columns(rules) %}
+    {%- for column, entry in rules -%}
+        <span class="cb-sanitize__rule">{{ column }}
+            {%- if entry.custom %}:
+                {%- if entry.formatter %} <code>{{ entry.formatter }}</code>
+                {%- else %} <span class="cb-muted">{{ 'Custom rule'|t('backup') }}</span>
+                {%- endif -%}
+            {%- endif -%}
+        </span>
+    {%- endfor -%}
+{% endmacro %}
+
+{% import _self as card %}
+
+<details class="cb-card cb-card--collapsible">
+    <summary class="cb-card__summary">
+        <span class="cb-card__heading">
+            <h2>{{ 'Sanitized copy'|t('backup') }}</h2>
+            {% if error is null %}
+                <span class="cb-card__subtitle">
+                    {{ 'Targets: {targets}; {emptied, plural, =1{# table} other{# tables}} emptied; {tables, plural, =1{# table} other{# tables}} and {fields, plural, =1{# field} other{# fields}} rewritten'|t('backup', {
+                        targets: preview.targets ? preview.targets|join(', ') : 'no target'|t('backup'),
+                        emptied: preview.emptiedCount,
+                        tables: preview.tables|length + (preview.users ? 1 : 0),
+                        fields: preview.fields|length,
+                    }) }}
+                </span>
+            {% endif %}
+        </span>
+        <span class="cb-card__chevron" aria-hidden="true"></span>
+    </summary>
+
+    {% if error is not null %}
+        <div class="cb-error">
+            {{ 'The sanitize config is invalid:'|t('backup') }}
+            <code>{{ error }}</code>
+        </div>
+    {% else %}
+        {% for warning in preview.warnings %}
+            <p class="cb-sanitize__warning"><span class="cb-badge cb-badge--warning">{{ 'Warning'|t('backup') }}</span> {{ warning }}</p>
+        {% endfor %}
+
+        <dl class="cb-rows">
+            <dt>{{ 'Targets'|t('backup') }}</dt>
+            <dd>
+                {% if preview.targets %}
+                    {{ preview.targets|join(', ') }}
+                {% else %}
+                    <span class="cb-muted">{{ 'None'|t('backup') }}</span>
+                {% endif %}
+            </dd>
+
+            {% if preview.users is not null %}
+                <dt>{{ 'Users'|t('backup') }}</dt>
+                <dd class="cb-sanitize__list">{{ card.columns(preview.users) }}</dd>
+
+                <dt>{{ 'Password'|t('backup') }}</dt>
+                <dd>
+                    {% if preview.password is null %}
+                        <span class="cb-muted">{{ 'Unchanged'|t('backup') }}</span>
+                    {% else %}
+                        <code>{{ preview.password }}</code>
+                    {% endif %}
+                </dd>
+
+                <dt>{{ 'Kept unchanged'|t('backup') }}</dt>
+                <dd>
+                    {% if preview.keepUsers == 'admins' %}
+                        {{ 'Admins'|t('backup') }}
+                    {% elseif preview.keepUsers == 'custom' %}
+                        <span class="cb-muted">{{ 'Custom rule'|t('backup') }}</span>
+                    {% else %}
+                        <span class="cb-muted">{{ 'None'|t('backup') }}</span>
+                    {% endif %}
+                </dd>
+            {% endif %}
+
+            {% for table, rules in preview.tables %}
+                <dt>{{ table }}</dt>
+                <dd class="cb-sanitize__list">{{ card.columns(rules) }}</dd>
+            {% endfor %}
+
+            {% if preview.fields %}
+                <dt>{{ 'Custom fields'|t('backup') }}</dt>
+                <dd class="cb-sanitize__list">{{ card.columns(preview.fields) }}</dd>
+            {% endif %}
+
+            <dt>{{ 'Emptied'|t('backup') }}</dt>
+            <dd class="cb-sanitize__list">
+                {% for entry in preview.emptied %}
+                    {% if entry.tables|length == 1 and entry.tables[0] == entry.pattern %}
+                        <span>{{ entry.pattern }}</span>
+                    {% else %}
+                        <span class="cb-tooltip" data-cb-tooltip="{{ entry.tables|join(', ') }}">
+                            {{ '{pattern} ({count, plural, =1{# table} other{# tables}})'|t('backup', { pattern: entry.pattern, count: entry.tables|length }) }}
+                        </span>
+                    {% endif %}
+                {% else %}
+                    <span class="cb-muted">{{ 'None'|t('backup') }}</span>
+                {% endfor %}
+            </dd>
+        </dl>
+
+        <p class="cb-sanitize__note">{{ 'Not covered: free text such as rich text content, API keys in plugin settings, and plugin tables without a rule.'|t('backup') }}</p>
+    {% endif %}
+</details>
