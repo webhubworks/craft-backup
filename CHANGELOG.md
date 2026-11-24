@@ -1,16 +1,18 @@
 # Release Notes for Craft Backup
 
-## Unreleased
+## 2.6.0 - 2026-11-24
 
 > **Breaking change for custom target drivers:** `TargetInterface::list()` now takes a `string $kind = self::KIND_BACKUP` parameter. A driver registered through `EVENT_REGISTER_TARGET_DRIVERS` that still declares `list(): array` causes a fatal error after the update. Add the parameter and return only the files of that kind: `KIND_BACKUP`, `KIND_SANITIZED`, or `KIND_CRAFT`. The built-in `local` and `sftp` drivers are already updated.
 
 ### Added
 - Sanitized copies: a database dump with personal data replaced by fake values and secrets removed, for developers and staging. Create one with `php craft backup/sanitize` or the new **Sanitized copy** button in the Backups utility. Users, addresses, the search index, sessions, tokens, and two-factor tables are covered without config. The `sanitize` config block adds rules for custom fields by handle, other tables, and tables to empty. Each target keeps only the newest copy, which appears under **Backups by target** with a **Sanitized** badge. See the README for how it works and what it doesn't cover.
 - A collapsed **Sanitized copy** card in the Backups utility shows what a sanitized copy does with the current config: the targets that receive it, the user columns, password, and kept users, the rewritten tables and custom fields, and the emptied tables. It checks the rules against the database and warns about tables, columns, fields, and targets that don't exist.
+- **Backups by target** also lists the dumps from Craft's own **Backup** button, with a **Craft** badge and a download. Retention and health checks ignore them.
 
 ### Changed
 - Requires `fakerphp/faker`.
 - `TargetInterface::list()` takes a `$kind` parameter, so targets can list sanitized copies and Craft's own dumps next to backups. See the breaking change note in this section.
+- `EVENT_ARCHIVE_CREATED` also fires for sanitized copies, with `$event->kind` set to `sanitized`. Sanitized copies fire no other run events.
 
 ## 2.5.0 - 2026-11-23
 
