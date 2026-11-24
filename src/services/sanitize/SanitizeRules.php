@@ -173,6 +173,40 @@ final class SanitizeRules
     }
 
     /**
+     * What each built-in closure in craftPreset() does, for the Backups utility.
+     * Formatter rules need no entry: their name says it. Keep both methods in step.
+     *
+     * @return array<string, array<string, string>> table => column => description
+     */
+    public static function presetDescriptions(CraftSchema $schema): array
+    {
+        $removed = 'Removed';
+        $fullName = 'First and last name combined';
+
+        return [
+            'users' => [
+                'email' => 'Unique fake email',
+                'username' => $schema->useEmailAsUsername() ? 'Same as the new email' : 'Unique fake username',
+                'fullName' => $fullName,
+                'lastLoginAttemptIp' => $removed,
+                'rememberToken' => $removed,
+            ],
+            'addresses' => [
+                'fullName' => $fullName,
+                'organizationTaxId' => $removed,
+                'addressLine2' => $removed,
+                'addressLine3' => $removed,
+                'sortingCode' => $removed,
+                'latitude' => $removed,
+                'longitude' => $removed,
+            ],
+            'gqltokens' => [
+                'accessToken' => 'Random token; the public schema token stays',
+            ],
+        ];
+    }
+
+    /**
      * Applies column rules to one row and returns only the changed columns.
      * Later rules see the values earlier rules produced, so a username rule
      * can copy the new email.

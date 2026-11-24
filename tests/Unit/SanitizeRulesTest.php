@@ -128,3 +128,16 @@ it('empties the legacy content tables only where they are leftovers', function()
     expect(SanitizeRules::fromConfig([], fakeSchema(legacyContent: true))->emptyTables)->toContain('content', 'matrixcontent_*')
         ->and(SanitizeRules::fromConfig([], fakeSchema(legacyContent: false))->emptyTables)->not->toContain('content');
 });
+
+it('describes every built-in closure rule for the Backups utility', function() {
+    $schema = fakeSchema();
+    $descriptions = SanitizeRules::presetDescriptions($schema);
+
+    foreach (SanitizeRules::craftPreset($schema, null)['tables'] as $table => $columns) {
+        foreach ($columns as $column => $rule) {
+            if ($rule instanceof Closure) {
+                expect($descriptions[$table][$column] ?? null)->not->toBeNull("{$table}.{$column} has no description");
+            }
+        }
+    }
+});

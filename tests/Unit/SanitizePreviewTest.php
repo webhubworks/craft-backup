@@ -21,7 +21,8 @@ it('describes the built-in rules against the live schema without warnings', func
         ->and($preview['keepUsers'])->toBe('admins')
         ->and($preview['users'])->toHaveKey('email')
         ->and($preview['users'])->not->toHaveKey('password')
-        ->and($preview['users']['firstName'])->toBe(['formatter' => 'firstName', 'custom' => false])
+        ->and($preview['users']['firstName'])->toBe(['formatter' => 'firstName', 'description' => null, 'custom' => false])
+        ->and($preview['users']['lastLoginAttemptIp'])->toBe(['formatter' => null, 'description' => 'Removed', 'custom' => false])
         ->and($preview['tables'])->toHaveKey('addresses')
         ->and(array_column($preview['emptied'], 'pattern'))->toContain('searchindex')
         ->and($preview['emptiedCount'])->toBeGreaterThan(0)
@@ -35,7 +36,7 @@ it('marks project rules as custom and closures without a formatter', function() 
         'password' => null,
     ]);
 
-    expect($preview['users']['photoId'])->toBe(['formatter' => null, 'custom' => true])
+    expect($preview['users']['photoId'])->toBe(['formatter' => null, 'description' => null, 'custom' => true])
         ->and($preview['keepUsers'])->toBe('none')
         ->and($preview['password'])->toBeNull();
 });

@@ -727,6 +727,10 @@
     gap: 4px 16px;
 }
 
+.cb-sanitize__description {
+    color: #6b7280;
+}
+
 .cb-sanitize__warning {
     margin: 0 0 12px;
     font-size: 13px;

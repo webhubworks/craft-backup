@@ -10,8 +10,9 @@ use webhubworks\backup\models\BackupConfig;
  * Describes what a sanitized copy would do with the current config and the
  * live database schema, for the Backups utility. Reads the schema only.
  *
- * A rule shows its Faker formatter name, or null for a closure. `custom` says
- * whether the rule comes from the project config or from the built-in preset.
+ * A rule shows its Faker formatter name, or for a closure a translated
+ * description when it's built in. `custom` says whether the rule comes from the
+ * project config or from the built-in preset.
  */
 class SanitizePreview
 {
@@ -22,11 +23,11 @@ class SanitizePreview
     /**
      * @return array{
      *     targets: list<string>,
-     *     users: array<string, array{formatter: ?string, custom: bool}>|null,
+     *     users: array<string, array{formatter: ?string, description: ?string, custom: bool}>|null,
      *     password: ?string,
      *     keepUsers: 'admins'|'custom'|'none',
-     *     tables: array<string, array<string, array{formatter: ?string, custom: bool}>>,
-     *     fields: array<string, array{formatter: ?string, custom: bool}>,
+     *     tables: array<string, array<string, array{formatter: ?string, description: ?string, custom: bool}>>,
+     *     fields: array<string, array{formatter: ?string, description: ?string, custom: bool}>,
      *     emptied: list<array{pattern: string, tables: list<string>}>,
      *     emptiedCount: int,
      *     warnings: list<string>,
@@ -38,6 +39,7 @@ class SanitizePreview
         $rules = SanitizeRules::fromConfig($settings, $this->schema);
         $projectTables = (array) ($settings['tables'] ?? []);
         $existing = $this->tableNames();
+        $descriptions = SanitizeRules::presetDescriptions($this->schema);
         $warnings = [];
 
         $targets = array_keys($config->targets);
@@ -74,9 +76,12 @@ class SanitizePreview
                 $warnings[] = Craft::t('backup', 'Columns in sanitize.tables.{table} don’t exist: {columns}', ['table' => $table, 'columns' => implode(', ', $missing)]);
             }
             foreach (array_intersect_key($columnRules, array_flip($columns)) as $column => $rule) {
+                $custom = isset($projectTables[$table][$column]);
+                $description = $custom ? null : ($descriptions[$table][$column] ?? null);
                 $tables[$table][$column] = [
                     'formatter' => is_string($rule) ? $rule : null,
-                    'custom' => isset($projectTables[$table][$column]),
+                    'description' => $description !== null ? Craft::t('backup', $description) : null,
+                    'custom' => $custom,
                 ];
             }
         }
@@ -98,7 +103,7 @@ class SanitizePreview
                 $warnings[] = Craft::t('backup', 'Field handles in sanitize.fields aren’t in any field layout: {handles}', ['handles' => implode(', ', $unknown)]);
             }
             foreach (array_diff_key($projectFields, array_flip($unknown)) as $handle => $rule) {
-                $fields[$handle] = ['formatter' => is_string($rule) ? $rule : null, 'custom' => true];
+                $fields[$handle] = ['formatter' => is_string($rule) ? $rule : null, 'description' => null, 'custom' => true];
             }
         }
 

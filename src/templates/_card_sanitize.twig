@@ -1,11 +1,9 @@
-{# Built-in rules show the column only; project rules also show their formatter or "Custom rule". #}
 {% macro columns(rules) %}
     {%- for column, entry in rules -%}
-        <span class="cb-sanitize__rule">{{ column }}
-            {%- if entry.custom %}:
-                {%- if entry.formatter %} <code>{{ entry.formatter }}</code>
-                {%- else %} <span class="cb-muted">{{ 'Custom rule'|t('backup') }}</span>
-                {%- endif -%}
+        <span class="cb-sanitize__rule">{{ column }}:
+            {%- if entry.formatter %} <code>{{ entry.formatter }}</code>
+            {%- elseif entry.description %} <span class="cb-sanitize__description">{{ entry.description }}</span>
+            {%- else %} <span class="cb-muted">{{ 'Custom rule'|t('backup') }}</span>
             {%- endif -%}
         </span>
     {%- endfor -%}
@@ -86,7 +84,7 @@
                 <dd class="cb-sanitize__list">{{ card.columns(preview.fields) }}</dd>
             {% endif %}
 
-            <dt>{{ 'Emptied'|t('backup') }}</dt>
+            <dt>{{ 'Emptied tables'|t('backup') }}</dt>
             <dd class="cb-sanitize__list">
                 {% for entry in preview.emptied %}
                     {% if entry.tables|length == 1 and entry.tables[0] == entry.pattern %}
