@@ -24,11 +24,11 @@ MongoDB is **not** supported (Craft itself runs on SQL). For everything else —
 ## Installation
 
 ```bash
-composer require webhubworks/craft-backup
-php craft plugin/install backup
+ddev composer require webhubworks/craft-backup
+ddev php craft plugin/install backup
 
 # Copy our `src/config.php` into your project or use:
-php craft backup/publish-config
+ddev php craft backup/publish-config
 ```
 
 ## Configuration
